@@ -16,6 +16,7 @@ const alertContainer = document.getElementById('alertContainer');
 // Company selection elements
 const companySelect = document.getElementById('companySelect');
 const currentCompanyName = document.getElementById('currentCompanyName');
+const currentCompanyLocation = document.getElementById('currentCompanyLocation');
 
 // Employee management elements
 const addEmployeeBtn = document.getElementById('addEmployeeBtn');
@@ -36,10 +37,10 @@ const saveEmployeeSpinner = document.getElementById('saveEmployeeSpinner');
 const employeeName = document.getElementById('employeeName');
 const employeeNo = document.getElementById('employeeNo');
 const position = document.getElementById('position');
-const customPosition = document.getElementById('customPosition');
+const yearsOfService = document.getElementById('yearsOfService');
 const annualLeave = document.getElementById('annualLeave');
-const customAnnualLeave = document.getElementById('customAnnualLeave');
 const medicalLeave = document.getElementById('medicalLeave');
+const hospitalizationLeave = document.getElementById('hospitalizationLeave');
 const employeeCompany = document.getElementById('employeeCompany');
 
 // Stats elements
@@ -53,6 +54,53 @@ let currentUserRole = null;
 let currentUserCompanies = [];
 let selectedCompanyId = null;
 let editingEmployeeId = null;
+
+// Leave calculation based on position and years of service
+function calculateLeaveEntitlements(positionLevel, yearsOfServiceRange) {
+    // Annual Leave calculation
+    const annualLeaveTable = {
+        'Manager Level': { '<2': 14, '2-5': 14, '>5': 16 },
+        'Executive Level': { '<2': 14, '2-5': 14, '>5': 16 },
+        'Supervisor Level': { '<2': 14, '2-5': 14, '>5': 16 },
+        'Clerical Level': { '<2': 10, '2-5': 12, '>5': 16 },
+        'Worker Level': { '<2': 8, '2-5': 12, '>5': 16 }
+    };
+    
+    // Medical Leave calculation  
+    const medicalLeaveTable = {
+        'Manager Level': { '<2': 14, '2-5': 18, '>5': 22 },
+        'Executive Level': { '<2': 14, '2-5': 18, '>5': 22 },
+        'Supervisor Level': { '<2': 14, '2-5': 18, '>5': 22 },
+        'Clerical Level': { '<2': 14, '2-5': 18, '>5': 22 },
+        'Worker Level': { '<2': 14, '2-5': 18, '>5': 22 }
+    };
+    
+    const annualLeaveDays = annualLeaveTable[positionLevel]?.[yearsOfServiceRange] || 0;
+    const medicalLeaveDays = medicalLeaveTable[positionLevel]?.[yearsOfServiceRange] || 0;
+    
+    return {
+        annualLeave: annualLeaveDays,
+        medicalLeave: medicalLeaveDays,
+        hospitalizationLeave: 60 // Fixed for all employees
+    };
+}
+
+// Update leave entitlements when position or years of service changes
+function updateLeaveEntitlements() {
+    const positionValue = position.value;
+    const yearsValue = yearsOfService.value;
+    
+    if (positionValue && yearsValue) {
+        const entitlements = calculateLeaveEntitlements(positionValue, yearsValue);
+        annualLeave.value = `${entitlements.annualLeave} days`;
+        medicalLeave.value = `${entitlements.medicalLeave} days`;
+        hospitalizationLeave.value = `${entitlements.hospitalizationLeave} days`;
+    } else {
+        annualLeave.value = '';
+        medicalLeave.value = '';
+        hospitalizationLeave.value = '60 days';
+    }
+}
 
 // Utility Functions
 function showAlert(message, type = 'danger') {
@@ -186,13 +234,13 @@ async function loadEmployees(companyId) {
             displayEmployees(employees);
             updateStats(employees);
         } else {
-            employeesTableBody.innerHTML = '<tr><td colspan="6" class="text-center">No employees found for this company</td></tr>';
+            employeesTableBody.innerHTML = '<tr><td colspan="7" class="text-center">No employees found for this company</td></tr>';
             updateStats({});
         }
     } catch (error) {
         console.error('Error loading employees:', error);
         showAlert('Failed to load employees.');
-        employeesTableBody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error loading employees</td></tr>';
+        employeesTableBody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error loading employees</td></tr>';
     }
 }
 
@@ -201,16 +249,26 @@ function displayEmployees(employees) {
     const employeeEntries = Object.entries(employees || {});
     
     if (employeeEntries.length === 0) {
-        employeesTableBody.innerHTML = '<tr><td colspan="6" class="text-center">No employees found</td></tr>';
+        employeesTableBody.innerHTML = '<tr><td colspan="7" class="text-center">No employees found</td></tr>';
         return;
     }
     
     const tableRows = employeeEntries.map(([employeeId, employeeData]) => {
+        // Format years of service display
+        let yearsDisplay = '';
+        switch(employeeData.yearsOfService) {
+            case '<2': yearsDisplay = 'Less than 2 years'; break;
+            case '2-5': yearsDisplay = '2 to 5 years'; break;
+            case '>5': yearsDisplay = 'More than 5 years'; break;
+            default: yearsDisplay = employeeData.yearsOfService || 'Not specified';
+        }
+        
         return `
             <tr>
                 <td><strong>${employeeData.empNo}</strong></td>
                 <td>${employeeData.name}</td>
                 <td>${employeeData.position}</td>
+                <td>${yearsDisplay}</td>
                 <td><span class="badge bg-primary">${employeeData.annualLeave} days</span></td>
                 <td><span class="badge bg-info">${employeeData.medicalLeave} days</span></td>
                 <td>
@@ -308,6 +366,7 @@ companySelect.addEventListener('change', (e) => {
     if (selectedCompanyId) {
         const selectedCompany = currentUserCompanies.find(c => c.id === selectedCompanyId);
         currentCompanyName.textContent = selectedCompany ? selectedCompany.name : 'Unknown';
+        currentCompanyLocation.textContent = selectedCompany ? selectedCompany.location || 'Not specified' : '-';
         
         // Show employee table and load employees
         noCompanySelected.style.display = 'none';
@@ -315,35 +374,16 @@ companySelect.addEventListener('change', (e) => {
         loadEmployees(selectedCompanyId);
     } else {
         currentCompanyName.textContent = 'None selected';
+        currentCompanyLocation.textContent = '-';
         noCompanySelected.style.display = 'block';
         employeeTableContainer.style.display = 'none';
         updateStats({});
     }
 });
 
-// Position selection change
-position.addEventListener('change', (e) => {
-    if (e.target.value === 'Other') {
-        customPosition.style.display = 'block';
-        customPosition.required = true;
-    } else {
-        customPosition.style.display = 'none';
-        customPosition.required = false;
-        customPosition.value = '';
-    }
-});
-
-// Annual leave selection change
-annualLeave.addEventListener('change', (e) => {
-    if (e.target.value === 'Other') {
-        customAnnualLeave.style.display = 'block';
-        customAnnualLeave.required = true;
-    } else {
-        customAnnualLeave.style.display = 'none';
-        customAnnualLeave.required = false;
-        customAnnualLeave.value = '';
-    }
-});
+// Position and years of service change handlers
+position.addEventListener('change', updateLeaveEntitlements);
+yearsOfService.addEventListener('change', updateLeaveEntitlements);
 
 // Add employee buttons
 addEmployeeBtn.addEventListener('click', (e) => {
@@ -381,9 +421,8 @@ function openEmployeeModal(employeeData = null, employeeId = null) {
         // Add mode
         employeeModalTitle.textContent = 'Add New Employee';
         employeeForm.reset();
-        customPosition.style.display = 'none';
-        customAnnualLeave.style.display = 'none';
         employeeCompany.value = selectedCompanyId;
+        hospitalizationLeave.value = '60 days';
     }
     
     employeeModal.show();
@@ -393,33 +432,18 @@ function openEmployeeModal(employeeData = null, employeeId = null) {
 function populateEmployeeForm(employeeData) {
     employeeName.value = employeeData.name || '';
     employeeNo.value = employeeData.empNo || '';
-    medicalLeave.value = employeeData.medicalLeave || '';
+    position.value = employeeData.position || '';
+    yearsOfService.value = employeeData.yearsOfService || '';
     employeeCompany.value = employeeData.companyId || selectedCompanyId;
     
-    // Handle position
-    if (employeeData.position) {
-        const standardPositions = ['Manager', 'Supervisor', 'Driver', 'General Worker'];
-        if (standardPositions.includes(employeeData.position)) {
-            position.value = employeeData.position;
-            customPosition.style.display = 'none';
-        } else {
-            position.value = 'Other';
-            customPosition.value = employeeData.position;
-            customPosition.style.display = 'block';
-        }
-    }
+    // Set leave values (these will be read-only display values)
+    annualLeave.value = employeeData.annualLeave ? `${employeeData.annualLeave} days` : '';
+    medicalLeave.value = employeeData.medicalLeave ? `${employeeData.medicalLeave} days` : '';
+    hospitalizationLeave.value = '60 days';
     
-    // Handle annual leave
-    if (employeeData.annualLeave) {
-        const standardDays = ['8', '10', '12', '14', '16'];
-        if (standardDays.includes(employeeData.annualLeave.toString())) {
-            annualLeave.value = employeeData.annualLeave.toString();
-            customAnnualLeave.style.display = 'none';
-        } else {
-            annualLeave.value = 'Other';
-            customAnnualLeave.value = employeeData.annualLeave;
-            customAnnualLeave.style.display = 'block';
-        }
+    // Update leave entitlements if both position and years are set
+    if (employeeData.position && employeeData.yearsOfService) {
+        updateLeaveEntitlements();
     }
 }
 
@@ -427,27 +451,28 @@ function populateEmployeeForm(employeeData) {
 employeeForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
+    // Extract numeric values from the readonly fields
+    const annualLeaveValue = parseInt(annualLeave.value.replace(' days', ''));
+    const medicalLeaveValue = parseInt(medicalLeave.value.replace(' days', ''));
+    
     const formData = {
         name: employeeName.value.trim(),
         empNo: employeeNo.value.trim(),
-        position: position.value === 'Other' ? customPosition.value.trim() : position.value,
-        annualLeave: annualLeave.value === 'Other' ? parseInt(customAnnualLeave.value) : parseInt(annualLeave.value),
-        medicalLeave: parseInt(medicalLeave.value)
+        position: position.value,
+        yearsOfService: yearsOfService.value,
+        annualLeave: annualLeaveValue,
+        medicalLeave: medicalLeaveValue,
+        hospitalizationLeave: 60
     };
     
     // Validation
-    if (!formData.name || !formData.empNo || !formData.position || !formData.annualLeave || formData.medicalLeave === undefined) {
+    if (!formData.name || !formData.empNo || !formData.position || !formData.yearsOfService) {
         showAlert('Please fill in all required fields.');
         return;
     }
     
-    if (formData.annualLeave < 1 || formData.annualLeave > 365) {
-        showAlert('Annual leave must be between 1 and 365 days.');
-        return;
-    }
-    
-    if (formData.medicalLeave < 0 || formData.medicalLeave > 365) {
-        showAlert('Medical leave must be between 0 and 365 days.');
+    if (isNaN(formData.annualLeave) || isNaN(formData.medicalLeave)) {
+        showAlert('Please select both position and years of service to calculate leave entitlements.');
         return;
     }
     
@@ -466,8 +491,7 @@ employeeForm.addEventListener('submit', async (e) => {
     if (success) {
         employeeModal.hide();
         employeeForm.reset();
-        customPosition.style.display = 'none';
-        customAnnualLeave.style.display = 'none';
+        hospitalizationLeave.value = '60 days';
         editingEmployeeId = null;
     }
     

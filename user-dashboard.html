@@ -135,7 +135,8 @@
                             <div class="col-md-6">
                                 <div class="mt-3 mt-md-0">
                                     <small class="text-muted">
-                                        Current Company: <strong id="currentCompanyName">None selected</strong>
+                                        Current Company: <strong id="currentCompanyName">None selected</strong><br>
+                                        Location: <strong id="currentCompanyLocation">-</strong>
                                     </small>
                                 </div>
                             </div>
@@ -174,6 +175,7 @@
                                             <th>Employee Number</th>
                                             <th>Name</th>
                                             <th>Position</th>
+                                            <th>Years of Service</th>
                                             <th>Annual Leave</th>
                                             <th>Medical Leave</th>
                                             <th>Actions</th>
@@ -181,7 +183,7 @@
                                     </thead>
                                     <tbody id="employeesTableBody">
                                         <tr>
-                                            <td colspan="6" class="text-center">Loading employees...</td>
+                                            <td colspan="7" class="text-center">Loading employees...</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -238,36 +240,41 @@
                                     <input type="text" class="form-control" id="employeeNo" required>
                                 </div>
                                 <div class="mb-3">
-                                    <label for="position" class="form-label">Position <span class="text-danger">*</span></label>
+                                    <label for="position" class="form-label">Position Level <span class="text-danger">*</span></label>
                                     <select class="form-select" id="position" required>
-                                        <option value="">Select Position</option>
-                                        <option value="Manager">Manager</option>
-                                        <option value="Supervisor">Supervisor</option>
-                                        <option value="Driver">Driver</option>
-                                        <option value="General Worker">General Worker</option>
-                                        <option value="Other">Other</option>
+                                        <option value="">Select Position Level</option>
+                                        <option value="Manager Level">Manager Level</option>
+                                        <option value="Executive Level">Executive Level</option>
+                                        <option value="Supervisor Level">Supervisor Level</option>
+                                        <option value="Clerical Level">Clerical Level</option>
+                                        <option value="Worker Level">Worker Level</option>
                                     </select>
-                                    <input type="text" class="form-control mt-2" id="customPosition" placeholder="Please specify..." style="display: none;">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="yearsOfService" class="form-label">Years of Service <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="yearsOfService" required>
+                                        <option value="">Select Years of Service</option>
+                                        <option value="<2">Less than 2 years</option>
+                                        <option value="2-5">2 to 5 years</option>
+                                        <option value=">5">More than 5 years</option>
+                                    </select>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="annualLeave" class="form-label">Annual Leave <span class="text-danger">*</span></label>
-                                    <select class="form-select" id="annualLeave" required>
-                                        <option value="">Select Annual Leave Days</option>
-                                        <option value="8">8 days</option>
-                                        <option value="10">10 days</option>
-                                        <option value="12">12 days</option>
-                                        <option value="14">14 days</option>
-                                        <option value="16">16 days</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                    <input type="number" class="form-control mt-2" id="customAnnualLeave" placeholder="Enter days..." style="display: none;" min="1" max="365">
+                                    <label for="annualLeave" class="form-label">Annual Leave</label>
+                                    <input type="text" class="form-control" id="annualLeave" readonly>
+                                    <div class="form-text">Automatically calculated based on position and years of service</div>
                                 </div>
                                 <div class="mb-3">
-                                    <label for="medicalLeave" class="form-label">Medical Leave <span class="text-danger">*</span></label>
-                                    <input type="number" class="form-control" id="medicalLeave" placeholder="Enter medical leave days" min="0" max="365" required>
-                                    <div class="form-text">Annual medical leave entitlement (days)</div>
+                                    <label for="medicalLeave" class="form-label">Medical Leave (Outpatient)</label>
+                                    <input type="text" class="form-control" id="medicalLeave" readonly>
+                                    <div class="form-text">Automatically calculated based on position and years of service</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="hospitalizationLeave" class="form-label">Medical Leave (Hospitalization)</label>
+                                    <input type="text" class="form-control" id="hospitalizationLeave" readonly value="60 days">
+                                    <div class="form-text">Fixed entitlement for all employees</div>
                                 </div>
                                 <div class="mb-3">
                                     <label for="employeeCompany" class="form-label">Company <span class="text-danger">*</span></label>
