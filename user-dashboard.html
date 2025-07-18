@@ -175,6 +175,7 @@
                                             <th>Employee Number</th>
                                             <th>Name</th>
                                             <th>Position</th>
+                                            <th>Join Date</th>
                                             <th>Years of Service</th>
                                             <th>Annual Leave</th>
                                             <th>Medical Leave</th>
@@ -183,7 +184,7 @@
                                     </thead>
                                     <tbody id="employeesTableBody">
                                         <tr>
-                                            <td colspan="7" class="text-center">Loading employees...</td>
+                                            <td colspan="8" class="text-center">Loading employees...</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -251,13 +252,14 @@
                                     </select>
                                 </div>
                                 <div class="mb-3">
-                                    <label for="yearsOfService" class="form-label">Years of Service <span class="text-danger">*</span></label>
-                                    <select class="form-select" id="yearsOfService" required>
-                                        <option value="">Select Years of Service</option>
-                                        <option value="<2">Less than 2 years</option>
-                                        <option value="2-5">2 to 5 years</option>
-                                        <option value=">5">More than 5 years</option>
-                                    </select>
+                                    <label for="joinDate" class="form-label">Join Date <span class="text-danger">*</span></label>
+                                    <input type="date" class="form-control" id="joinDate" required>
+                                    <div class="form-text">Employee's start date with the company</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="yearsOfService" class="form-label">Years of Service</label>
+                                    <input type="text" class="form-control" id="yearsOfService" readonly>
+                                    <div class="form-text">Automatically calculated based on join date</div>
                                 </div>
                             </div>
                             <div class="col-md-6">

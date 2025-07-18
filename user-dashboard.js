@@ -37,6 +37,7 @@ const saveEmployeeSpinner = document.getElementById('saveEmployeeSpinner');
 const employeeName = document.getElementById('employeeName');
 const employeeNo = document.getElementById('employeeNo');
 const position = document.getElementById('position');
+const joinDate = document.getElementById('joinDate');
 const yearsOfService = document.getElementById('yearsOfService');
 const annualLeave = document.getElementById('annualLeave');
 const medicalLeave = document.getElementById('medicalLeave');
@@ -54,6 +55,53 @@ let currentUserRole = null;
 let currentUserCompanies = [];
 let selectedCompanyId = null;
 let editingEmployeeId = null;
+
+// Calculate years of service based on join date
+function calculateYearsOfService(joinDateString) {
+    if (!joinDateString) return null;
+    
+    const joinDate = new Date(joinDateString);
+    const currentDate = new Date();
+    
+    // Calculate the difference in years
+    let years = currentDate.getFullYear() - joinDate.getFullYear();
+    
+    // Check if the anniversary has passed this year
+    const monthDiff = currentDate.getMonth() - joinDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && currentDate.getDate() < joinDate.getDate())) {
+        years--;
+    }
+    
+    // Return the range category
+    if (years < 2) return '<2';
+    else if (years >= 2 && years < 5) return '2-5';
+    else return '>5';
+}
+
+// Format years of service range for display
+function formatYearsOfServiceDisplay(yearsRange) {
+    switch(yearsRange) {
+        case '<2': return 'Less than 2 years';
+        case '2-5': return '2 to 5 years';
+        case '>5': return 'More than 5 years';
+        default: return 'Not specified';
+    }
+}
+
+// Update years of service based on join date
+function updateYearsOfService() {
+    const joinDateValue = joinDate.value;
+    if (joinDateValue) {
+        const yearsRange = calculateYearsOfService(joinDateValue);
+        yearsOfService.value = formatYearsOfServiceDisplay(yearsRange);
+        yearsOfService.dataset.range = yearsRange; // Store the range for calculations
+        updateLeaveEntitlements();
+    } else {
+        yearsOfService.value = '';
+        yearsOfService.dataset.range = '';
+        updateLeaveEntitlements();
+    }
+}
 
 // Leave calculation based on position and years of service
 function calculateLeaveEntitlements(positionLevel, yearsOfServiceRange) {
@@ -88,10 +136,10 @@ function calculateLeaveEntitlements(positionLevel, yearsOfServiceRange) {
 // Update leave entitlements when position or years of service changes
 function updateLeaveEntitlements() {
     const positionValue = position.value;
-    const yearsValue = yearsOfService.value;
+    const yearsRange = yearsOfService.dataset.range;
     
-    if (positionValue && yearsValue) {
-        const entitlements = calculateLeaveEntitlements(positionValue, yearsValue);
+    if (positionValue && yearsRange) {
+        const entitlements = calculateLeaveEntitlements(positionValue, yearsRange);
         annualLeave.value = `${entitlements.annualLeave} days`;
         medicalLeave.value = `${entitlements.medicalLeave} days`;
         hospitalizationLeave.value = `${entitlements.hospitalizationLeave} days`;
@@ -211,8 +259,9 @@ function updateCompanyDropdowns() {
     employeeCompany.innerHTML = '<option value="">Select Company</option>';
     
     currentUserCompanies.forEach(company => {
-        const option1 = new Option(company.name, company.id);
-        const option2 = new Option(company.name, company.id);
+        const companyDisplayName = `${company.name}${company.location ? ' - ' + company.location : ''}`;
+        const option1 = new Option(companyDisplayName, company.id);
+        const option2 = new Option(companyDisplayName, company.id);
         companySelect.add(option1);
         employeeCompany.add(option2);
     });
@@ -234,13 +283,13 @@ async function loadEmployees(companyId) {
             displayEmployees(employees);
             updateStats(employees);
         } else {
-            employeesTableBody.innerHTML = '<tr><td colspan="7" class="text-center">No employees found for this company</td></tr>';
+            employeesTableBody.innerHTML = '<tr><td colspan="8" class="text-center">No employees found for this company</td></tr>';
             updateStats({});
         }
     } catch (error) {
         console.error('Error loading employees:', error);
         showAlert('Failed to load employees.');
-        employeesTableBody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error loading employees</td></tr>';
+        employeesTableBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Error loading employees</td></tr>';
     }
 }
 
@@ -249,11 +298,19 @@ function displayEmployees(employees) {
     const employeeEntries = Object.entries(employees || {});
     
     if (employeeEntries.length === 0) {
-        employeesTableBody.innerHTML = '<tr><td colspan="7" class="text-center">No employees found</td></tr>';
+        employeesTableBody.innerHTML = '<tr><td colspan="8" class="text-center">No employees found</td></tr>';
         return;
     }
     
     const tableRows = employeeEntries.map(([employeeId, employeeData]) => {
+        // Format join date display
+        const joinDateDisplay = employeeData.joinDate ? 
+            new Date(employeeData.joinDate).toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: '2-digit', 
+                year: 'numeric'
+            }) : 'Not specified';
+        
         // Format years of service display
         let yearsDisplay = '';
         switch(employeeData.yearsOfService) {
@@ -268,6 +325,7 @@ function displayEmployees(employees) {
                 <td><strong>${employeeData.empNo}</strong></td>
                 <td>${employeeData.name}</td>
                 <td>${employeeData.position}</td>
+                <td>${joinDateDisplay}</td>
                 <td>${yearsDisplay}</td>
                 <td><span class="badge bg-primary">${employeeData.annualLeave} days</span></td>
                 <td><span class="badge bg-info">${employeeData.medicalLeave} days</span></td>
@@ -381,9 +439,9 @@ companySelect.addEventListener('change', (e) => {
     }
 });
 
-// Position and years of service change handlers
+// Position and join date change handlers
 position.addEventListener('change', updateLeaveEntitlements);
-yearsOfService.addEventListener('change', updateLeaveEntitlements);
+joinDate.addEventListener('change', updateYearsOfService);
 
 // Add employee buttons
 addEmployeeBtn.addEventListener('click', (e) => {
@@ -433,7 +491,7 @@ function populateEmployeeForm(employeeData) {
     employeeName.value = employeeData.name || '';
     employeeNo.value = employeeData.empNo || '';
     position.value = employeeData.position || '';
-    yearsOfService.value = employeeData.yearsOfService || '';
+    joinDate.value = employeeData.joinDate || '';
     employeeCompany.value = employeeData.companyId || selectedCompanyId;
     
     // Set leave values (these will be read-only display values)
@@ -441,9 +499,18 @@ function populateEmployeeForm(employeeData) {
     medicalLeave.value = employeeData.medicalLeave ? `${employeeData.medicalLeave} days` : '';
     hospitalizationLeave.value = '60 days';
     
-    // Update leave entitlements if both position and years are set
-    if (employeeData.position && employeeData.yearsOfService) {
-        updateLeaveEntitlements();
+    // Update years of service and leave entitlements based on join date
+    if (employeeData.joinDate) {
+        const yearsRange = calculateYearsOfService(employeeData.joinDate);
+        yearsOfService.value = formatYearsOfServiceDisplay(yearsRange);
+        yearsOfService.dataset.range = yearsRange;
+        
+        if (employeeData.position) {
+            updateLeaveEntitlements();
+        }
+    } else {
+        yearsOfService.value = '';
+        yearsOfService.dataset.range = '';
     }
 }
 
@@ -454,25 +521,27 @@ employeeForm.addEventListener('submit', async (e) => {
     // Extract numeric values from the readonly fields
     const annualLeaveValue = parseInt(annualLeave.value.replace(' days', ''));
     const medicalLeaveValue = parseInt(medicalLeave.value.replace(' days', ''));
+    const yearsRange = yearsOfService.dataset.range;
     
     const formData = {
         name: employeeName.value.trim(),
         empNo: employeeNo.value.trim(),
         position: position.value,
-        yearsOfService: yearsOfService.value,
+        joinDate: joinDate.value,
+        yearsOfService: yearsRange,
         annualLeave: annualLeaveValue,
         medicalLeave: medicalLeaveValue,
         hospitalizationLeave: 60
     };
     
     // Validation
-    if (!formData.name || !formData.empNo || !formData.position || !formData.yearsOfService) {
+    if (!formData.name || !formData.empNo || !formData.position || !formData.joinDate) {
         showAlert('Please fill in all required fields.');
         return;
     }
     
     if (isNaN(formData.annualLeave) || isNaN(formData.medicalLeave)) {
-        showAlert('Please select both position and years of service to calculate leave entitlements.');
+        showAlert('Please select position and join date to calculate leave entitlements.');
         return;
     }
     
@@ -491,6 +560,8 @@ employeeForm.addEventListener('submit', async (e) => {
     if (success) {
         employeeModal.hide();
         employeeForm.reset();
+        yearsOfService.value = '';
+        yearsOfService.dataset.range = '';
         hospitalizationLeave.value = '60 days';
         editingEmployeeId = null;
     }

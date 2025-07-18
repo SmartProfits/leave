@@ -141,9 +141,11 @@ async function loadCompanies() {
         
         if (snapshot.exists()) {
             const companies = snapshot.val();
+            allCompaniesData = companies; // Store globally for company expansion
             displayCompanies(companies);
             return companies;
         } else {
+            allCompaniesData = {};
             companiesTableBody.innerHTML = '<tr><td colspan="5" class="text-center">No companies found</td></tr>';
             return {};
         }
@@ -299,6 +301,107 @@ async function loadUsers() {
     }
 }
 
+// Store companies data globally for company expansion
+let allCompaniesData = {};
+
+// Toggle company details for a specific user
+function toggleUserCompanies(userId) {
+    const existingExpansion = document.getElementById(`company-expansion-${userId}`);
+    
+    if (existingExpansion) {
+        // If expansion already exists, remove it (collapse)
+        existingExpansion.remove();
+        return;
+    }
+    
+    // Get user data to find their company permissions
+    getUserCompanies(userId);
+}
+
+// Get and display user's companies
+async function getUserCompanies(userId) {
+    try {
+        const userRef = window.firebaseRef(window.firebaseDatabase, `users/${userId}`);
+        const snapshot = await window.firebaseGet(userRef);
+        
+        if (snapshot.exists()) {
+            const userData = snapshot.val();
+            const companyPermissions = userData.companyPermissions || {};
+            
+            // Create expansion row
+            const userRow = document.getElementById(`user-row-${userId}`);
+            if (userRow) {
+                const expansionRow = createCompanyExpansionRow(userId, companyPermissions);
+                userRow.insertAdjacentHTML('afterend', expansionRow);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading user companies:', error);
+        showAlert('Failed to load user companies.');
+    }
+}
+
+// Create company expansion row HTML
+function createCompanyExpansionRow(userId, companyPermissions) {
+    const companyIds = Object.keys(companyPermissions);
+    
+    if (companyIds.length === 0) {
+        return `
+            <tr id="company-expansion-${userId}" class="table-light">
+                <td colspan="6" class="px-4 py-3">
+                    <div class="text-muted">No companies assigned to this user.</div>
+                </td>
+            </tr>
+        `;
+    }
+    
+    const companiesList = companyIds.map(companyId => {
+        const company = allCompaniesData[companyId];
+        if (!company) {
+            return `
+                <div class="d-flex align-items-center mb-2 p-2 bg-white rounded border">
+                    <i class="bi bi-building text-muted me-3"></i>
+                    <div>
+                        <strong class="text-danger">Unknown Company</strong>
+                        <small class="text-muted d-block">Company ID: ${companyId}</small>
+                    </div>
+                </div>
+            `;
+        }
+        
+        return `
+            <div class="d-flex align-items-center mb-2 p-2 bg-white rounded border">
+                <i class="bi bi-building text-primary me-3"></i>
+                <div>
+                    <strong>${company.name}</strong>
+                    <small class="text-muted d-block">
+                        <i class="bi bi-geo-alt me-1"></i>${company.location || 'No location specified'}
+                    </small>
+                    ${company.address ? `<small class="text-muted d-block">${company.address}</small>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    return `
+        <tr id="company-expansion-${userId}" class="table-light">
+            <td colspan="6" class="px-4 py-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0 text-primary">
+                        <i class="bi bi-buildings me-2"></i>Company Access (${companyIds.length})
+                    </h6>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleUserCompanies('${userId}')" title="Collapse">
+                        <i class="bi bi-chevron-up"></i>
+                    </button>
+                </div>
+                <div class="companies-list">
+                    ${companiesList}
+                </div>
+            </td>
+        </tr>
+    `;
+}
+
 // Display users in table
 function displayUsers(users) {
     const userEntries = Object.entries(users);
@@ -317,11 +420,11 @@ function displayUsers(users) {
         if (userData.role === USER_ROLES.SADMIN || userData.role === USER_ROLES.ADMIN) {
             companiesDisplay = '<span class="badge bg-success">All Companies</span>';
         } else if (companiesCount > 0) {
-            companiesDisplay = `<span class="badge bg-info">${companiesCount} Companies</span>`;
+            companiesDisplay = `<span class="badge bg-info clickable-companies" style="cursor: pointer;" onclick="toggleUserCompanies('${uid}')" data-user-id="${uid}">${companiesCount} Companies</span>`;
         }
         
         return `
-            <tr>
+            <tr id="user-row-${uid}">
                 <td>
                     <strong>${userData.profile?.name || 'No Name'}</strong>
                     <br><small class="text-muted">${userData.email}</small>
@@ -850,6 +953,9 @@ window.deleteUser = function(userId, userEmail) {
         deleteUserAction(userId);
     }
 };
+
+// Global function for toggling user companies
+window.toggleUserCompanies = toggleUserCompanies;
 
 // Listen for auth state changes
 window.onAuthStateChanged(window.firebaseAuth, (user) => {
