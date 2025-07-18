@@ -63,6 +63,11 @@ function calculateYearsOfService(joinDateString) {
     const joinDate = new Date(joinDateString);
     const currentDate = new Date();
     
+    // Check if joined this year
+    if (joinDate.getFullYear() === currentDate.getFullYear()) {
+        return 'current-year';
+    }
+    
     // Calculate the difference in years
     let years = currentDate.getFullYear() - joinDate.getFullYear();
     
@@ -81,6 +86,7 @@ function calculateYearsOfService(joinDateString) {
 // Format years of service range for display
 function formatYearsOfServiceDisplay(yearsRange) {
     switch(yearsRange) {
+        case 'current-year': return 'Current year';
         case '<2': return 'Less than 2 years';
         case '2-5': return '2 to 5 years';
         case '>5': return 'More than 5 years';
@@ -105,6 +111,15 @@ function updateYearsOfService() {
 
 // Leave calculation based on position and years of service
 function calculateLeaveEntitlements(positionLevel, yearsOfServiceRange) {
+    // Special case for current year employees
+    if (yearsOfServiceRange === 'current-year') {
+        return {
+            annualLeave: 0, // No annual leave for current year employees
+            medicalLeave: 14, // Fixed 14 days medical leave
+            hospitalizationLeave: 60 // Fixed for all employees
+        };
+    }
+    
     // Annual Leave calculation
     const annualLeaveTable = {
         'Manager Level': { '<2': 14, '2-5': 14, '>5': 16 },
@@ -311,23 +326,40 @@ function displayEmployees(employees) {
                 year: 'numeric'
             }) : 'Not specified';
         
+        // Check if employee joined this year for highlighting
+        const isCurrentYearEmployee = employeeData.yearsOfService === 'current-year';
+        
         // Format years of service display
         let yearsDisplay = '';
         switch(employeeData.yearsOfService) {
+            case 'current-year': 
+                yearsDisplay = '<span class="badge bg-warning text-dark"><i class="bi bi-star-fill me-1"></i>Current year</span>'; 
+                break;
             case '<2': yearsDisplay = 'Less than 2 years'; break;
             case '2-5': yearsDisplay = '2 to 5 years'; break;
             case '>5': yearsDisplay = 'More than 5 years'; break;
             default: yearsDisplay = employeeData.yearsOfService || 'Not specified';
         }
         
+        // Apply highlighting for current year employees
+        const rowClass = isCurrentYearEmployee ? 'table-warning' : '';
+        const empNoDisplay = isCurrentYearEmployee ? 
+            `<strong>${employeeData.empNo}</strong> <i class="bi bi-star-fill text-warning ms-1" title="New Employee"></i>` : 
+            `<strong>${employeeData.empNo}</strong>`;
+        
+        // Special badge styling for current year employees
+        const annualLeaveBadge = isCurrentYearEmployee ? 
+            `<span class="badge bg-secondary">${employeeData.annualLeave} days</span>` :
+            `<span class="badge bg-primary">${employeeData.annualLeave} days</span>`;
+            
         return `
-            <tr>
-                <td><strong>${employeeData.empNo}</strong></td>
+            <tr class="${rowClass}">
+                <td>${empNoDisplay}</td>
                 <td>${employeeData.name}</td>
                 <td>${employeeData.position}</td>
                 <td>${joinDateDisplay}</td>
                 <td>${yearsDisplay}</td>
-                <td><span class="badge bg-primary">${employeeData.annualLeave} days</span></td>
+                <td>${annualLeaveBadge}</td>
                 <td><span class="badge bg-info">${employeeData.medicalLeave} days</span></td>
                 <td>
                     <div class="btn-group btn-group-sm">
