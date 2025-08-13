@@ -43,6 +43,9 @@ const detailYearsOfService = document.getElementById('detailYearsOfService');
 const detailAnnualLeave = document.getElementById('detailAnnualLeave');
 const detailMedicalLeave = document.getElementById('detailMedicalLeave');
 const detailHospitalizationLeave = document.getElementById('detailHospitalizationLeave');
+const detailCompany = document.getElementById('detailCompany');
+const detailCreatedAt = document.getElementById('detailCreatedAt');
+const detailUpdatedAt = document.getElementById('detailUpdatedAt');
 
 // Record Leave form elements
 const recordLeaveForm = document.getElementById('recordLeaveForm');
@@ -65,6 +68,12 @@ const usedAnnualLeave = document.getElementById('usedAnnualLeave');
 const remainingAnnualLeave = document.getElementById('remainingAnnualLeave');
 const usedMedicalLeave = document.getElementById('usedMedicalLeave');
 const remainingMedicalLeave = document.getElementById('remainingMedicalLeave');
+const usedHospitalizationLeave = document.getElementById('usedHospitalizationLeave');
+const usedUnpaidLeave = document.getElementById('usedUnpaidLeave');
+const usedCompassionateLeave = document.getElementById('usedCompassionateLeave');
+const usedPaternityLeave = document.getElementById('usedPaternityLeave');
+const usedMaternityLeave = document.getElementById('usedMaternityLeave');
+const usedEmergencyLeave = document.getElementById('usedEmergencyLeave');
 
 // Form elements
 const employeeName = document.getElementById('employeeName');
@@ -387,13 +396,13 @@ async function loadEmployees(companyId) {
             await displayEmployees(employees);
             updateStats(employees);
         } else {
-            employeesTableBody.innerHTML = '<tr><td colspan="9" class="text-center">No employees found for this company</td></tr>';
+            employeesTableBody.innerHTML = '<tr><td colspan="10" class="text-center">No employees found for this company</td></tr>';
             updateStats({});
         }
     } catch (error) {
         console.error('Error loading employees:', error);
         showAlert('Failed to load employees.');
-        employeesTableBody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">Error loading employees</td></tr>';
+        employeesTableBody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">Error loading employees</td></tr>';
     }
 }
 
@@ -402,12 +411,12 @@ async function displayEmployees(employees) {
     const employeeEntries = Object.entries(employees || {});
     
     if (employeeEntries.length === 0) {
-        employeesTableBody.innerHTML = '<tr><td colspan="9" class="text-center">No employees found</td></tr>';
+        employeesTableBody.innerHTML = '<tr><td colspan="10" class="text-center">No employees found</td></tr>';
         return;
     }
     
     // Show loading while calculating balances
-    employeesTableBody.innerHTML = '<tr><td colspan="9" class="text-center">Calculating leave balances...</td></tr>';
+    employeesTableBody.innerHTML = '<tr><td colspan="10" class="text-center">Calculating leave balances...</td></tr>';
     
     const tableRowPromises = employeeEntries.map(async ([employeeId, employeeData]) => {
         // Format join date display
@@ -471,6 +480,7 @@ async function displayEmployees(employees) {
                 <td>${yearsDisplay}</td>
                 <td>${annualLeaveBadge}</td>
                 <td><span class="badge bg-info">${employeeData.medicalLeave} days</span></td>
+                <td><span class="badge bg-success">${employeeData.hospitalizationLeave || 60} days</span></td>
                 <td>${leaveBalanceDisplay}</td>
                 <td>
                     <div class="btn-group btn-group-sm">
@@ -792,6 +802,12 @@ async function calculateEmployeeLeaveBalance(employeeId, employeeData) {
         const currentYear = new Date().getFullYear();
         let usedAnnual = 0;
         let usedMedical = 0;
+        let usedHospitalization = 0;
+        let usedUnpaid = 0;
+        let usedCompassionate = 0;
+        let usedPaternity = 0;
+        let usedMaternity = 0;
+        let usedEmergency = 0;
         
         // Get leave records for this employee
         const leavesRef = window.firebaseRef(window.firebaseDatabase, `leaves/${selectedCompanyId}/${employeeId}`);
@@ -810,8 +826,25 @@ async function calculateEmployeeLeaveBalance(employeeId, employeeData) {
                             usedAnnual += leave.duration;
                             break;
                         case 'medical':
-                        case 'hospitalization':
                             usedMedical += leave.duration;
+                            break;
+                        case 'hospitalization':
+                            usedHospitalization += leave.duration;
+                            break;
+                        case 'unpaid':
+                            usedUnpaid += leave.duration;
+                            break;
+                        case 'compassionate':
+                            usedCompassionate += leave.duration;
+                            break;
+                        case 'paternity':
+                            usedPaternity += leave.duration;
+                            break;
+                        case 'maternity':
+                            usedMaternity += leave.duration;
+                            break;
+                        case 'emergency':
+                            usedEmergency += leave.duration;
                             break;
                     }
                 }
@@ -820,7 +853,8 @@ async function calculateEmployeeLeaveBalance(employeeId, employeeData) {
         
         // Calculate remaining balances
         const annualBalance = Math.max(0, employeeData.annualLeave - usedAnnual);
-        const medicalBalance = Math.max(0, (employeeData.medicalLeave + (employeeData.hospitalizationLeave || 60)) - usedMedical);
+        const medicalBalance = Math.max(0, employeeData.medicalLeave - usedMedical);
+        const hospitalizationBalance = Math.max(0, (employeeData.hospitalizationLeave || 60) - usedHospitalization);
         
         return {
             annual: {
@@ -829,16 +863,42 @@ async function calculateEmployeeLeaveBalance(employeeId, employeeData) {
                 remaining: annualBalance
             },
             medical: {
-                total: employeeData.medicalLeave + (employeeData.hospitalizationLeave || 60),
+                total: employeeData.medicalLeave,
                 used: usedMedical,
                 remaining: medicalBalance
+            },
+            hospitalization: {
+                total: employeeData.hospitalizationLeave || 60,
+                used: usedHospitalization,
+                remaining: hospitalizationBalance
+            },
+            unpaid: {
+                used: usedUnpaid
+            },
+            compassionate: {
+                used: usedCompassionate
+            },
+            paternity: {
+                used: usedPaternity
+            },
+            maternity: {
+                used: usedMaternity
+            },
+            emergency: {
+                used: usedEmergency
             }
         };
     } catch (error) {
         console.error('Error calculating leave balance:', error);
         return {
             annual: { total: employeeData.annualLeave, used: 0, remaining: employeeData.annualLeave },
-            medical: { total: employeeData.medicalLeave + (employeeData.hospitalizationLeave || 60), used: 0, remaining: employeeData.medicalLeave + (employeeData.hospitalizationLeave || 60) }
+            medical: { total: employeeData.medicalLeave, used: 0, remaining: employeeData.medicalLeave },
+            hospitalization: { total: employeeData.hospitalizationLeave || 60, used: 0, remaining: employeeData.hospitalizationLeave || 60 },
+            unpaid: { used: 0 },
+            compassionate: { used: 0 },
+            paternity: { used: 0 },
+            maternity: { used: 0 },
+            emergency: { used: 0 }
         };
     }
 }
@@ -849,6 +909,8 @@ function formatLeaveBalance(balance) {
         <div class="d-flex flex-column">
             <small class="text-muted">Annual: <span class="badge bg-primary">${balance.annual.remaining}/${balance.annual.total}</span></small>
             <small class="text-muted">Medical: <span class="badge bg-info">${balance.medical.remaining}/${balance.medical.total}</span></small>
+            <small class="text-muted">Hospitalization: <span class="badge bg-success">${balance.hospitalization.remaining}/${balance.hospitalization.total}</span></small>
+            ${balance.unpaid.used > 0 ? `<small class="text-muted">Unpaid: <span class="badge bg-warning">${balance.unpaid.used} days</span></small>` : ''}
         </div>
     `;
 }
@@ -904,6 +966,31 @@ function populateEmployeeDetails(employeeData) {
     
     // Format years of service
     detailYearsOfService.textContent = formatYearsOfServiceDisplay(employeeData.yearsOfService);
+    
+    // Get company name
+    const company = currentUserCompanies.find(c => c.id === employeeData.companyId);
+    detailCompany.textContent = company ? `${company.name}${company.location ? ' - ' + company.location : ''}` : 'Not specified';
+    
+    // Format dates
+    const createdAt = employeeData.createdAt ? 
+        new Date(employeeData.createdAt).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: '2-digit', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }) : 'Not specified';
+    detailCreatedAt.textContent = createdAt;
+    
+    const updatedAt = employeeData.updatedAt ? 
+        new Date(employeeData.updatedAt).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: '2-digit', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }) : 'Not specified';
+    detailUpdatedAt.textContent = updatedAt;
     
     // Set leave entitlements
     detailAnnualLeave.textContent = `${employeeData.annualLeave} days`;
@@ -966,14 +1053,44 @@ async function updateBalanceDisplay(requestedDays) {
                 afterBalance = Math.max(0, relevantBalance - requestedDays);
                 break;
             case 'medical':
-            case 'hospitalization':
                 relevantBalance = currentBalance.medical.remaining;
-                balanceType = 'Medical Leave';
+                balanceType = 'Medical Leave (Outpatient)';
                 afterBalance = Math.max(0, relevantBalance - requestedDays);
                 break;
+            case 'hospitalization':
+                relevantBalance = currentBalance.hospitalization.remaining;
+                balanceType = 'Medical Leave (Hospitalization)';
+                afterBalance = Math.max(0, relevantBalance - requestedDays);
+                break;
+            case 'unpaid':
+                // Unpaid leave doesn't affect balance
+                currentBalanceDisplay.innerHTML = `<span class="text-info">Unlimited</span><br><small>Unpaid Leave</small>`;
+                afterBalanceDisplay.innerHTML = `<span class="text-success">No impact</span><br><small class="text-muted">on balance</small>`;
+                balanceCheck.style.display = 'block';
+                return;
+            case 'compassionate':
+                // Compassionate leave doesn't affect regular balance
+                currentBalanceDisplay.innerHTML = `<span class="text-info">As needed</span><br><small>Compassionate Leave</small>`;
+                afterBalanceDisplay.innerHTML = `<span class="text-success">No impact</span><br><small class="text-muted">on balance</small>`;
+                balanceCheck.style.display = 'block';
+                return;
+            case 'paternity':
+                // Paternity leave as per policy
+                currentBalanceDisplay.innerHTML = `<span class="text-info">As per policy</span><br><small>Paternity Leave</small>`;
+                afterBalanceDisplay.innerHTML = `<span class="text-success">No impact</span><br><small class="text-muted">on balance</small>`;
+                balanceCheck.style.display = 'block';
+                return;
+            case 'maternity':
+                // Maternity leave as per policy
+                currentBalanceDisplay.innerHTML = `<span class="text-info">As per policy</span><br><small>Maternity Leave</small>`;
+                afterBalanceDisplay.innerHTML = `<span class="text-success">No impact</span><br><small class="text-muted">on balance</small>`;
+                balanceCheck.style.display = 'block';
+                return;
             case 'emergency':
-                // Emergency leave might not deduct from balance
-                balanceCheck.style.display = 'none';
+                // Emergency leave doesn't affect balance
+                currentBalanceDisplay.innerHTML = `<span class="text-info">As needed</span><br><small>Emergency Leave</small>`;
+                afterBalanceDisplay.innerHTML = `<span class="text-success">No impact</span><br><small class="text-muted">on balance</small>`;
+                balanceCheck.style.display = 'block';
                 return;
             default:
                 balanceCheck.style.display = 'none';
@@ -1108,6 +1225,12 @@ function calculateLeaveSummary(leaves) {
     const currentYear = new Date().getFullYear();
     let usedAnnual = 0;
     let usedMedical = 0;
+    let usedHospitalization = 0;
+    let usedUnpaid = 0;
+    let usedCompassionate = 0;
+    let usedPaternity = 0;
+    let usedMaternity = 0;
+    let usedEmergency = 0;
     
     Object.values(leaves || {}).forEach(leave => {
         const leaveYear = new Date(leave.startDate).getFullYear();
@@ -1119,8 +1242,25 @@ function calculateLeaveSummary(leaves) {
                     usedAnnual += leave.duration;
                     break;
                 case 'medical':
-                case 'hospitalization':
                     usedMedical += leave.duration;
+                    break;
+                case 'hospitalization':
+                    usedHospitalization += leave.duration;
+                    break;
+                case 'unpaid':
+                    usedUnpaid += leave.duration;
+                    break;
+                case 'compassionate':
+                    usedCompassionate += leave.duration;
+                    break;
+                case 'paternity':
+                    usedPaternity += leave.duration;
+                    break;
+                case 'maternity':
+                    usedMaternity += leave.duration;
+                    break;
+                case 'emergency':
+                    usedEmergency += leave.duration;
                     break;
             }
         }
@@ -1130,7 +1270,13 @@ function calculateLeaveSummary(leaves) {
     usedAnnualLeave.textContent = usedAnnual;
     remainingAnnualLeave.textContent = Math.max(0, currentEmployeeData.annualLeave - usedAnnual);
     usedMedicalLeave.textContent = usedMedical;
-    remainingMedicalLeave.textContent = Math.max(0, currentEmployeeData.medicalLeave + (currentEmployeeData.hospitalizationLeave || 60) - usedMedical);
+    remainingMedicalLeave.textContent = Math.max(0, currentEmployeeData.medicalLeave - usedMedical);
+    usedHospitalizationLeave.textContent = usedHospitalization;
+    usedUnpaidLeave.textContent = usedUnpaid;
+    usedCompassionateLeave.textContent = usedCompassionate;
+    usedPaternityLeave.textContent = usedPaternity;
+    usedMaternityLeave.textContent = usedMaternity;
+    usedEmergencyLeave.textContent = usedEmergency;
 }
 
 // Reset leave summary
@@ -1138,7 +1284,13 @@ function resetLeaveSummary() {
     usedAnnualLeave.textContent = '0';
     remainingAnnualLeave.textContent = currentEmployeeData?.annualLeave || '0';
     usedMedicalLeave.textContent = '0';
-    remainingMedicalLeave.textContent = (currentEmployeeData?.medicalLeave || 0) + (currentEmployeeData?.hospitalizationLeave || 60);
+    remainingMedicalLeave.textContent = currentEmployeeData?.medicalLeave || '0';
+    usedHospitalizationLeave.textContent = '0';
+    usedUnpaidLeave.textContent = '0';
+    usedCompassionateLeave.textContent = '0';
+    usedPaternityLeave.textContent = '0';
+    usedMaternityLeave.textContent = '0';
+    usedEmergencyLeave.textContent = '0';
 }
 
 // Generate PDF report
@@ -1317,12 +1469,27 @@ recordLeaveForm.addEventListener('submit', async (e) => {
             balanceMessage = `You have ${currentBalance.annual.remaining} days remaining of annual leave. Cannot approve ${duration} days.`;
             break;
         case 'medical':
-        case 'hospitalization':
             hasEnoughBalance = duration <= currentBalance.medical.remaining;
-            balanceMessage = `You have ${currentBalance.medical.remaining} days remaining of medical leave (including hospitalization). Cannot approve ${duration} days.`;
+            balanceMessage = `You have ${currentBalance.medical.remaining} days remaining of medical leave (outpatient). Cannot approve ${duration} days.`;
+            break;
+        case 'hospitalization':
+            hasEnoughBalance = duration <= currentBalance.hospitalization.remaining;
+            balanceMessage = `You have ${currentBalance.hospitalization.remaining} days remaining of hospitalization leave. Cannot approve ${duration} days.`;
+            break;
+        case 'unpaid':
+            hasEnoughBalance = true; // Unpaid leave doesn't have balance restrictions
+            break;
+        case 'compassionate':
+            hasEnoughBalance = true; // Compassionate leave as needed
+            break;
+        case 'paternity':
+            hasEnoughBalance = true; // Paternity leave as per policy
+            break;
+        case 'maternity':
+            hasEnoughBalance = true; // Maternity leave as per policy
             break;
         case 'emergency':
-            hasEnoughBalance = true; // Emergency leave might not be restricted by balance
+            hasEnoughBalance = true; // Emergency leave as needed
             break;
         default:
             hasEnoughBalance = true;

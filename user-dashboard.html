@@ -179,13 +179,14 @@
                                             <th>Years of Service</th>
                                             <th>Annual Leave</th>
                                             <th>Medical Leave</th>
+                                            <th>Hospitalization Leave</th>
                                             <th>Leave Balance</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody id="employeesTableBody">
                                         <tr>
-                                            <td colspan="9" class="text-center">Loading employees...</td>
+                                            <td colspan="10" class="text-center">Loading employees...</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -332,7 +333,17 @@
                                     <div class="mb-2">
                                         <strong>Years of Service:</strong> <span id="detailYearsOfService">-</span>
                                     </div>
+                                    <div class="mb-2">
+                                        <strong>Company:</strong> <span id="detailCompany">-</span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Created:</strong> <span id="detailCreatedAt">-</span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Last Updated:</strong> <span id="detailUpdatedAt">-</span>
+                                    </div>
                                     <hr>
+                                    <h6 class="text-primary mb-2"><i class="bi bi-calendar-check me-1"></i>Leave Entitlements</h6>
                                     <div class="mb-2">
                                         <strong>Annual Leave:</strong> <span id="detailAnnualLeave" class="badge bg-primary">-</span>
                                     </div>
@@ -341,6 +352,23 @@
                                     </div>
                                     <div class="mb-2">
                                         <strong>Hospitalization:</strong> <span id="detailHospitalizationLeave" class="badge bg-success">60 days</span>
+                                    </div>
+                                    <hr>
+                                    <h6 class="text-secondary mb-2"><i class="bi bi-info-circle me-1"></i>Special Leave Types</h6>
+                                    <div class="mb-1">
+                                        <small class="text-muted">Compassionate Leave: <strong>3days With Docs</strong></small>
+                                    </div>
+                                    <div class="mb-1">
+                                        <small class="text-muted">Paternity Leave: <strong>7days with Docs</strong></small>
+                                    </div>
+                                    <div class="mb-1">
+                                        <small class="text-muted">Maternity Leave: <strong>98days with Docs</strong></small>
+                                    </div>
+                                    <div class="mb-1">
+                                        <small class="text-muted">Unpaid Leave: <strong>As needed</strong></small>
+                                    </div>
+                                    <div class="mb-1">
+                                        <small class="text-muted">Emergency Leave: <strong>As needed</strong></small>
                                     </div>
                                 </div>
                             </div>
@@ -357,8 +385,12 @@
                                             <select class="form-select" id="leaveType" required>
                                                 <option value="">Select Leave Type</option>
                                                 <option value="annual">Annual Leave</option>
-                                                <option value="medical">Medical Leave</option>
-                                                <option value="hospitalization">Hospitalization Leave</option>
+                                                <option value="medical">Medical Leave (Outpatient)</option>
+                                                <option value="hospitalization">Medical Leave (Hospitalization)</option>
+                                                <option value="compassionate">Compassionate Leave</option>
+                                                <option value="paternity">Paternity Leave</option>
+                                                <option value="maternity">Maternity Leave</option>
+                                                <option value="unpaid">Unpaid Leave</option>
                                                 <option value="emergency">Emergency Leave</option>
                                             </select>
                                         </div>
@@ -447,29 +479,67 @@
                                     <h6 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Leave Summary</h6>
                                 </div>
                                 <div class="card-body">
-                                    <div class="row text-center">
-                                        <div class="col-md-3">
+                                    <div class="row text-center mb-3">
+                                        <div class="col-md-2">
                                             <div class="border rounded p-2">
                                                 <div class="h5 mb-1" id="usedAnnualLeave">0</div>
                                                 <small class="text-muted">Annual Used</small>
                                             </div>
                                         </div>
-                                        <div class="col-md-3">
+                                        <div class="col-md-2">
                                             <div class="border rounded p-2">
                                                 <div class="h5 mb-1" id="remainingAnnualLeave">0</div>
                                                 <small class="text-muted">Annual Remaining</small>
                                             </div>
                                         </div>
-                                        <div class="col-md-3">
+                                        <div class="col-md-2">
                                             <div class="border rounded p-2">
                                                 <div class="h5 mb-1" id="usedMedicalLeave">0</div>
                                                 <small class="text-muted">Medical Used</small>
                                             </div>
                                         </div>
-                                        <div class="col-md-3">
+                                        <div class="col-md-2">
                                             <div class="border rounded p-2">
                                                 <div class="h5 mb-1" id="remainingMedicalLeave">0</div>
                                                 <small class="text-muted">Medical Remaining</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="border rounded p-2">
+                                                <div class="h5 mb-1" id="usedHospitalizationLeave">0</div>
+                                                <small class="text-muted">Hospitalization Used</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="border rounded p-2">
+                                                <div class="h5 mb-1" id="usedUnpaidLeave">0</div>
+                                                <small class="text-muted">Unpaid Leave Taken</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row text-center">
+                                        <div class="col-md-3">
+                                            <div class="border rounded p-2">
+                                                <div class="h5 mb-1" id="usedCompassionateLeave">0</div>
+                                                <small class="text-muted">Compassionate Used</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="border rounded p-2">
+                                                <div class="h5 mb-1" id="usedPaternityLeave">0</div>
+                                                <small class="text-muted">Paternity Used</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="border rounded p-2">
+                                                <div class="h5 mb-1" id="usedMaternityLeave">0</div>
+                                                <small class="text-muted">Maternity Used</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="border rounded p-2">
+                                                <div class="h5 mb-1" id="usedEmergencyLeave">0</div>
+                                                <small class="text-muted">Emergency Used</small>
                                             </div>
                                         </div>
                                     </div>
