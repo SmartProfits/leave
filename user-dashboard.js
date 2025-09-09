@@ -186,9 +186,44 @@ function calculateProportionalAnnualLeave(joinDateString, positionLevel) {
     
     // Calculate proportional leave (days worked / total days in year * full entitlement)
     const totalDaysInYear = isLeapYear(joinYear) ? 366 : 365;
-    const proportionalLeave = Math.round((daysWorked / totalDaysInYear) * fullYearLeave);
+    const rawProportionalLeave = (daysWorked / totalDaysInYear) * fullYearLeave;
+    
+    // Apply custom rounding rules for decimal places
+    const proportionalLeave = applyCustomRounding(rawProportionalLeave);
     
     return proportionalLeave;
+}
+
+// Apply custom rounding rules for leave calculation
+function applyCustomRounding(value) {
+    const integerPart = Math.floor(value);
+    const decimalPart = value - integerPart;
+    
+    // Custom rounding rules:
+    // 0.0-0.29 = 0 (no additional days)
+    // 0.3-0.79 = 0.5 (half day)
+    // 0.8-0.99 = 1 (full day)
+    
+    if (decimalPart >= 0.0 && decimalPart < 0.3) {
+        return integerPart; // No additional days
+    } else if (decimalPart >= 0.3 && decimalPart < 0.8) {
+        return integerPart + 0.5; // Half day
+    } else if (decimalPart >= 0.8) {
+        return integerPart + 1; // Full day
+    }
+    
+    return integerPart; // Fallback
+}
+
+// Test function to verify custom rounding works correctly
+function testCustomRounding() {
+    console.log('Testing custom rounding rules:');
+    console.log('7.03 ->', applyCustomRounding(7.03)); // Should be 7
+    console.log('8.35 ->', applyCustomRounding(8.35)); // Should be 8.5
+    console.log('7.88 ->', applyCustomRounding(7.88)); // Should be 8
+    console.log('6.25 ->', applyCustomRounding(6.25)); // Should be 6
+    console.log('9.45 ->', applyCustomRounding(9.45)); // Should be 9.5
+    console.log('5.85 ->', applyCustomRounding(5.85)); // Should be 6
 }
 
 // Check if a year is a leap year
@@ -253,7 +288,7 @@ function updateLeaveEntitlements() {
     
     if (positionValue && yearsRange) {
         const entitlements = calculateLeaveEntitlements(positionValue, yearsRange, joinDateValue);
-        annualLeave.value = `${entitlements.annualLeave} days`;
+        annualLeave.value = `${entitlements.annualLeave} day${entitlements.annualLeave === 1 ? '' : 's'}`;
         medicalLeave.value = `${entitlements.medicalLeave} days`;
         hospitalizationLeave.value = `${entitlements.hospitalizationLeave} days`;
     } else {
@@ -415,6 +450,23 @@ async function displayEmployees(employees) {
         return;
     }
     
+    // Sort employees by Employee Number
+    employeeEntries.sort(([,a], [,b]) => {
+        const empNoA = a.empNo || '';
+        const empNoB = b.empNo || '';
+        
+        // Extract numeric part for comparison
+        const numA = parseInt(empNoA.replace(/\D/g, '')) || 0;
+        const numB = parseInt(empNoB.replace(/\D/g, '')) || 0;
+        
+        // If numeric parts are equal, compare the full string
+        if (numA === numB) {
+            return empNoA.localeCompare(empNoB);
+        }
+        
+        return numA - numB;
+    });
+    
     // Show loading while calculating balances
     employeesTableBody.innerHTML = '<tr><td colspan="10" class="text-center">Calculating leave balances...</td></tr>';
     
@@ -459,12 +511,13 @@ async function displayEmployees(employees) {
         
         // Special badge styling for special employees
         let annualLeaveBadge;
+        const annualLeaveText = `${employeeData.annualLeave} day${employeeData.annualLeave === 1 ? '' : 's'}`;
         if (isCurrentYearEmployee) {
-            annualLeaveBadge = `<span class="badge bg-secondary">${employeeData.annualLeave} days</span>`;
+            annualLeaveBadge = `<span class="badge bg-secondary">${annualLeaveText}</span>`;
         } else if (isLastYearEmployee) {
-            annualLeaveBadge = `<span class="badge bg-success">${employeeData.annualLeave} days</span>`;
+            annualLeaveBadge = `<span class="badge bg-success">${annualLeaveText}</span>`;
         } else {
-            annualLeaveBadge = `<span class="badge bg-primary">${employeeData.annualLeave} days</span>`;
+            annualLeaveBadge = `<span class="badge bg-primary">${annualLeaveText}</span>`;
         }
         
         // Calculate leave balance
@@ -650,7 +703,7 @@ function populateEmployeeForm(employeeData) {
     employeeCompany.value = employeeData.companyId || selectedCompanyId;
     
     // Set leave values (these will be read-only display values)
-    annualLeave.value = employeeData.annualLeave ? `${employeeData.annualLeave} days` : '';
+    annualLeave.value = employeeData.annualLeave ? `${employeeData.annualLeave} day${employeeData.annualLeave === 1 ? '' : 's'}` : '';
     medicalLeave.value = employeeData.medicalLeave ? `${employeeData.medicalLeave} days` : '';
     hospitalizationLeave.value = '60 days';
     
@@ -663,7 +716,7 @@ function populateEmployeeForm(employeeData) {
         // Calculate leave entitlements with join date for accurate calculation
         if (employeeData.position) {
             const entitlements = calculateLeaveEntitlements(employeeData.position, yearsRange, employeeData.joinDate);
-            annualLeave.value = `${entitlements.annualLeave} days`;
+            annualLeave.value = `${entitlements.annualLeave} day${entitlements.annualLeave === 1 ? '' : 's'}`;
             medicalLeave.value = `${entitlements.medicalLeave} days`;
             hospitalizationLeave.value = `${entitlements.hospitalizationLeave} days`;
         }
@@ -678,7 +731,7 @@ employeeForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
     // Extract numeric values from the readonly fields
-    const annualLeaveValue = parseInt(annualLeave.value.replace(' days', ''));
+    const annualLeaveValue = parseFloat(annualLeave.value.replace(/ days?$/, ''));
     const medicalLeaveValue = parseInt(medicalLeave.value.replace(' days', ''));
     const yearsRange = yearsOfService.dataset.range;
     
@@ -910,7 +963,7 @@ function formatLeaveBalance(balance) {
             <small class="text-muted">Annual: <span class="badge bg-primary">${balance.annual.remaining}/${balance.annual.total}</span></small>
             <small class="text-muted">Medical: <span class="badge bg-info">${balance.medical.remaining}/${balance.medical.total}</span></small>
             <small class="text-muted">Hospitalization: <span class="badge bg-success">${balance.hospitalization.remaining}/${balance.hospitalization.total}</span></small>
-            ${balance.unpaid.used > 0 ? `<small class="text-muted">Unpaid: <span class="badge bg-warning">${balance.unpaid.used} days</span></small>` : ''}
+            ${balance.unpaid.used > 0 ? `<small class="text-muted">Unpaid: <span class="badge bg-warning">${balance.unpaid.used} day${balance.unpaid.used === 1 ? '' : 's'}</span></small>` : ''}
         </div>
     `;
 }
@@ -993,7 +1046,7 @@ function populateEmployeeDetails(employeeData) {
     detailUpdatedAt.textContent = updatedAt;
     
     // Set leave entitlements
-    detailAnnualLeave.textContent = `${employeeData.annualLeave} days`;
+    detailAnnualLeave.textContent = `${employeeData.annualLeave} day${employeeData.annualLeave === 1 ? '' : 's'}`;
     detailMedicalLeave.textContent = `${employeeData.medicalLeave} days`;
     detailHospitalizationLeave.textContent = `${employeeData.hospitalizationLeave || 60} days`;
     
@@ -1321,7 +1374,7 @@ async function generatePDF() {
         doc.text('Leave Entitlements', 20, 95);
         doc.setFontSize(12);
         doc.setTextColor(0, 0, 0);
-        doc.text(`Annual Leave: ${currentEmployeeData.annualLeave} days`, 20, 110);
+        doc.text(`Annual Leave: ${currentEmployeeData.annualLeave} day${currentEmployeeData.annualLeave === 1 ? '' : 's'}`, 20, 110);
         doc.text(`Medical Leave: ${currentEmployeeData.medicalLeave} days`, 20, 120);
         doc.text(`Hospitalization Leave: ${currentEmployeeData.hospitalizationLeave || 60} days`, 20, 130);
         
