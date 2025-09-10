@@ -226,6 +226,41 @@ function testCustomRounding() {
     console.log('5.85 ->', applyCustomRounding(5.85)); // Should be 6
 }
 
+// Test function to verify Saturday detection works correctly
+function testSaturdayDetection() {
+    console.log('Testing Saturday detection:');
+    console.log('2024-01-01 to 2024-01-07 (includes Saturday):', hasSaturdayInRange('2024-01-01', '2024-01-07')); // Should be true
+    console.log('2024-01-01 to 2024-01-05 (no Saturday):', hasSaturdayInRange('2024-01-01', '2024-01-05')); // Should be false
+    console.log('2024-01-06 to 2024-01-06 (just Saturday):', hasSaturdayInRange('2024-01-06', '2024-01-06')); // Should be true
+    console.log('2024-01-08 to 2024-01-12 (no Saturday):', hasSaturdayInRange('2024-01-08', '2024-01-12')); // Should be false
+}
+
+// Test function to verify working days calculation
+function testWorkingDaysCalculation() {
+    console.log('Testing working days calculation:');
+    
+    // Test case 1: Monday to Friday (5 days) - no Saturday
+    console.log('Mon-Fri (5 days, no Saturday):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-05', 'annual', 'no')); // Should be 5
+    
+    // Test case 2: Monday to Saturday (6 days) - Saturday not working
+    console.log('Mon-Sat (6 days, Saturday not working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'annual', 'no')); // Should be 5
+    
+    // Test case 3: Monday to Saturday (6 days) - Saturday working
+    console.log('Mon-Sat (6 days, Saturday working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'annual', 'yes')); // Should be 6
+    
+    // Test case 4: Friday to Sunday (3 days) - Saturday not working
+    console.log('Fri-Sun (3 days, Saturday not working):', calculateLeaveDurationWithSaturday('2024-01-05', '2024-01-07', 'annual', 'no')); // Should be 1 (Friday only)
+    
+    // Test case 5: Friday to Sunday (3 days) - Saturday working
+    console.log('Fri-Sun (3 days, Saturday working):', calculateLeaveDurationWithSaturday('2024-01-05', '2024-01-07', 'annual', 'yes')); // Should be 2 (Friday + Saturday)
+    
+    // Test case 6: Just Saturday - not working
+    console.log('Just Saturday (not working):', calculateLeaveDurationWithSaturday('2024-01-06', '2024-01-06', 'annual', 'no')); // Should be 0
+    
+    // Test case 7: Just Saturday - working
+    console.log('Just Saturday (working):', calculateLeaveDurationWithSaturday('2024-01-06', '2024-01-06', 'annual', 'yes')); // Should be 1
+}
+
 // Check if a year is a leap year
 function isLeapYear(year) {
     return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
@@ -991,6 +1026,7 @@ async function openEmployeeDetails(employeeId) {
             recordLeaveForm.reset();
             leaveDuration.textContent = 'Select dates to calculate duration';
             balanceCheck.style.display = 'none';
+            document.getElementById('saturdayWorkOption').style.display = 'none';
             
             employeeDetailsModal.show();
         } else {
@@ -1060,6 +1096,48 @@ function populateEmployeeDetails(employeeData) {
     }
 }
 
+// Check if the date range includes Saturday
+function hasSaturdayInRange(startDate, endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+        if (date.getDay() === 6) { // Saturday is 6
+            return true;
+        }
+    }
+    return false;
+}
+
+// Calculate leave duration considering Saturday work schedule
+function calculateLeaveDurationWithSaturday(startDate, endDate, leaveType, saturdayWork = 'no') {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    let workingDays = 0;
+    
+    // Count working days (excluding Sundays)
+    for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+        const dayOfWeek = date.getDay();
+        
+        // Always exclude Sundays (0)
+        if (dayOfWeek === 0) {
+            continue;
+        }
+        
+        // For Saturdays (6), check if employee works on Saturday
+        if (dayOfWeek === 6) {
+            if (saturdayWork === 'yes') {
+                workingDays++; // Count Saturday if employee works on Saturday
+            }
+            // Skip Saturday if employee doesn't work on Saturday
+        } else {
+            workingDays++; // Count all other weekdays
+        }
+    }
+    
+    return workingDays;
+}
+
 // Calculate leave duration and update balance display
 async function calculateLeaveDuration() {
     const startDate = new Date(leaveStartDate.value);
@@ -1067,8 +1145,30 @@ async function calculateLeaveDuration() {
     
     if (leaveStartDate.value && leaveEndDate.value) {
         if (endDate >= startDate) {
-            const timeDiff = endDate.getTime() - startDate.getTime();
-            const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1; // +1 to include both start and end dates
+            // Check if this is Annual Leave and includes Saturday
+            if (leaveType.value === 'annual' && hasSaturdayInRange(leaveStartDate.value, leaveEndDate.value)) {
+                // Show Saturday work option
+                document.getElementById('saturdayWorkOption').style.display = 'block';
+            } else {
+                // Hide Saturday work option
+                document.getElementById('saturdayWorkOption').style.display = 'none';
+            }
+            
+            // Get Saturday work preference
+            const saturdayWorkOption = document.querySelector('input[name="saturdayWork"]:checked');
+            const saturdayWork = saturdayWorkOption ? saturdayWorkOption.value : 'no';
+            
+            // Calculate duration based on leave type and Saturday work schedule
+            let daysDiff;
+            if (leaveType.value === 'annual') {
+                // For annual leave, use working days calculation
+                daysDiff = calculateLeaveDurationWithSaturday(leaveStartDate.value, leaveEndDate.value, leaveType.value, saturdayWork);
+            } else {
+                // For other leave types, use simple day count
+                const timeDiff = endDate.getTime() - startDate.getTime();
+                daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+            }
+            
             leaveDuration.textContent = `${daysDiff} day${daysDiff === 1 ? '' : 's'}`;
             
             // Update balance display if leave type is selected
@@ -1078,11 +1178,13 @@ async function calculateLeaveDuration() {
         } else {
             leaveDuration.textContent = 'End date must be after start date';
             balanceCheck.style.display = 'none';
+            document.getElementById('saturdayWorkOption').style.display = 'none';
             return 0;
         }
     } else {
         leaveDuration.textContent = 'Select dates to calculate duration';
         balanceCheck.style.display = 'none';
+        document.getElementById('saturdayWorkOption').style.display = 'none';
         return 0;
     }
 }
@@ -1239,12 +1341,20 @@ function displayLeaveHistory(leaves) {
         // Status badge
         const statusBadge = getStatusBadge(leaveData.status);
         
+        // Add Saturday work info if available
+        const saturdayInfo = leaveData.saturdayWork ? 
+            `<br><small class="text-muted"><i class="bi bi-calendar-week me-1"></i>Saturday: ${leaveData.saturdayWork === 'yes' ? 'Working' : 'Non-working'}</small>` : '';
+        
+        // Add working days calculation info for annual leave
+        const workingDaysInfo = leaveData.type === 'annual' && leaveData.saturdayWork ? 
+            `<br><small class="text-muted"><i class="bi bi-calculator me-1"></i>Working days calculation applied</small>` : '';
+        
         return `
             <tr>
                 <td><span class="badge bg-secondary">${leaveTypeDisplay}</span></td>
                 <td>${startDate}</td>
                 <td>${endDate}</td>
-                <td><strong>${leaveData.duration} day${leaveData.duration === 1 ? '' : 's'}</strong></td>
+                <td><strong>${leaveData.duration} day${leaveData.duration === 1 ? '' : 's'}</strong>${saturdayInfo}${workingDaysInfo}</td>
                 <td>${leaveData.reason}</td>
                 <td>${statusBadge}</td>
                 <td>
@@ -1486,6 +1596,14 @@ leaveType.addEventListener('change', async () => {
     // updateBalanceDisplay is already called within calculateLeaveDuration
 });
 
+// Handle Saturday work option changes
+document.addEventListener('change', (e) => {
+    if (e.target.name === 'saturdayWork') {
+        // Recalculate duration when Saturday work option changes
+        calculateLeaveDuration();
+    }
+});
+
 // Record leave form submission
 recordLeaveForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1496,12 +1614,17 @@ recordLeaveForm.addEventListener('submit', async (e) => {
         return;
     }
     
+    // Get Saturday work preference
+    const saturdayWorkOption = document.querySelector('input[name="saturdayWork"]:checked');
+    const saturdayWork = saturdayWorkOption ? saturdayWorkOption.value : 'no';
+    
     const leaveData = {
         type: leaveType.value,
         startDate: leaveStartDate.value,
         endDate: leaveEndDate.value,
         duration: duration,
-        reason: leaveReason.value.trim()
+        reason: leaveReason.value.trim(),
+        saturdayWork: saturdayWork
     };
     
     // Validation
@@ -1558,6 +1681,7 @@ recordLeaveForm.addEventListener('submit', async (e) => {
         recordLeaveForm.reset();
         leaveDuration.textContent = 'Select dates to calculate duration';
         balanceCheck.style.display = 'none';
+        document.getElementById('saturdayWorkOption').style.display = 'none';
         
         // Refresh the main employee table to update leave balance
         if (selectedCompanyId) {
