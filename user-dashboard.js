@@ -261,15 +261,52 @@ function testWorkingDaysCalculation() {
     console.log('Just Saturday (not working):', calculateLeaveDurationWithSaturday('2024-01-06', '2024-01-06', 'compassionate', 'no')); // Should be 0
     console.log('Just Saturday (working):', calculateLeaveDurationWithSaturday('2024-01-06', '2024-01-06', 'compassionate', 'yes')); // Should be 1
     
-    // Test Paternity Leave
-    console.log('=== Paternity Leave Tests ===');
-    console.log('Mon-Sat (6 days, Saturday not working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'paternity', 'no')); // Should be 5
-    console.log('Mon-Sat (6 days, Saturday working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'paternity', 'yes')); // Should be 6
-    
     // Test Unpaid Leave
     console.log('=== Unpaid Leave Tests ===');
     console.log('Mon-Sat (6 days, Saturday not working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'unpaid', 'no')); // Should be 5
     console.log('Mon-Sat (6 days, Saturday working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'unpaid', 'yes')); // Should be 6
+}
+
+// Test function to verify simple day count calculation for Maternity Leave
+function testMaternityLeaveCalculation() {
+    console.log('Testing Maternity Leave calculation (Simple Day Count):');
+    
+    // Test Maternity Leave
+    console.log('=== Maternity Leave Tests (Simple Day Count) ===');
+    console.log('Mon-Sat (6 days):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'maternity', 'no')); // Should be 6
+    console.log('Fri-Sun (3 days):', calculateLeaveDurationWithSaturday('2024-01-05', '2024-01-07', 'maternity', 'yes')); // Should be 3
+    console.log('Just Saturday (1 day):', calculateLeaveDurationWithSaturday('2024-01-06', '2024-01-06', 'maternity', 'no')); // Should be 1
+}
+
+// Test function to verify paternity leave employment status calculation
+function testPaternityLeaveCalculation() {
+    console.log('Testing Paternity Leave calculation based on employment status:');
+    
+    // Test Paternity Leave - Probation Staff
+    console.log('=== Paternity Leave - Probation Staff (2 days) ===');
+    console.log('Probation staff paternity leave:', 2); // Fixed 2 days
+    
+    // Test Paternity Leave - Confirmed Staff
+    console.log('=== Paternity Leave - Confirmed Staff (7 days) ===');
+    console.log('Confirmed staff paternity leave:', 7); // Fixed 7 days
+}
+
+// Test function for paternity leave date validation
+function testPaternityLeaveDateValidation() {
+    console.log('=== Testing Paternity Leave Date Validation ===');
+    
+    // Test cases for probation staff (2 days max)
+    console.log('Testing Probation Staff (2 days max):');
+    console.log('Valid: 1 day (today to today)');
+    console.log('Valid: 2 days (today to tomorrow)');
+    console.log('Invalid: 3+ days (exceeds limit)');
+    
+    // Test cases for confirmed staff (7 days max)
+    console.log('\nTesting Confirmed Staff (7 days max):');
+    console.log('Valid: 1-7 days');
+    console.log('Invalid: 8+ days (exceeds limit)');
+    
+    console.log('Paternity leave date validation test completed!');
 }
 
 // Check if a year is a leap year
@@ -1038,6 +1075,7 @@ async function openEmployeeDetails(employeeId) {
             leaveDuration.textContent = 'Select dates to calculate duration';
             balanceCheck.style.display = 'none';
             document.getElementById('saturdayWorkOption').style.display = 'none';
+            document.getElementById('paternityEmploymentOption').style.display = 'none';
             
             employeeDetailsModal.show();
         } else {
@@ -1156,13 +1194,19 @@ async function calculateLeaveDuration() {
     
     if (leaveStartDate.value && leaveEndDate.value) {
         if (endDate >= startDate) {
-            // Check if this leave type needs Saturday work option (all except maternity) and includes Saturday
-            if (leaveType.value !== 'maternity' && hasSaturdayInRange(leaveStartDate.value, leaveEndDate.value)) {
-                // Show Saturday work option for all leave types except maternity
+            // Check if this leave type needs Saturday work option (all except maternity and paternity) and includes Saturday
+            if (leaveType.value !== 'maternity' && leaveType.value !== 'paternity' && hasSaturdayInRange(leaveStartDate.value, leaveEndDate.value)) {
+                // Show Saturday work option for all leave types except maternity and paternity
                 document.getElementById('saturdayWorkOption').style.display = 'block';
-            } else {
-                // Hide Saturday work option for maternity leave or when no Saturday in range
+                document.getElementById('paternityEmploymentOption').style.display = 'none';
+            } else if (leaveType.value === 'paternity') {
+                // Show paternity employment status option for paternity leave
+                document.getElementById('paternityEmploymentOption').style.display = 'block';
                 document.getElementById('saturdayWorkOption').style.display = 'none';
+            } else {
+                // Hide both options for maternity leave or when no Saturday in range
+                document.getElementById('saturdayWorkOption').style.display = 'none';
+                document.getElementById('paternityEmploymentOption').style.display = 'none';
             }
             
             // Get Saturday work preference
@@ -1171,17 +1215,26 @@ async function calculateLeaveDuration() {
             
             // Calculate duration based on leave type and Saturday work schedule
             let daysDiff;
-            if (leaveType.value === 'annual' || (leaveType.value !== 'maternity' && leaveType.value !== 'annual')) {
-                // For annual leave and other leave types (except maternity), use working days calculation
-                daysDiff = calculateLeaveDurationWithSaturday(leaveStartDate.value, leaveEndDate.value, leaveType.value, saturdayWork);
-            } else if (leaveType.value === 'maternity') {
+            if (leaveType.value === 'maternity') {
                 // For maternity leave, use simple day count (include all days)
                 const timeDiff = endDate.getTime() - startDate.getTime();
                 daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+            } else if (leaveType.value === 'paternity') {
+                // For paternity leave, use fixed days based on employment status
+                const paternityEmploymentOption = document.querySelector('input[name="paternityEmployment"]:checked');
+                const employmentStatus = paternityEmploymentOption ? paternityEmploymentOption.value : 'confirmed';
+                daysDiff = employmentStatus === 'probation' ? 2 : 7;
+                
+                // Update the duration display to show the fixed days
+                leaveDuration.textContent = `${daysDiff} day${daysDiff === 1 ? '' : 's'} (Fixed based on employment status)`;
+                
+                // Update balance display if leave type is selected
+                await updateBalanceDisplay(daysDiff);
+                
+                return daysDiff;
             } else {
-                // Fallback to simple day count
-                const timeDiff = endDate.getTime() - startDate.getTime();
-                daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+                // For all other leave types, use working days calculation
+                daysDiff = calculateLeaveDurationWithSaturday(leaveStartDate.value, leaveEndDate.value, leaveType.value, saturdayWork);
             }
             
             leaveDuration.textContent = `${daysDiff} day${daysDiff === 1 ? '' : 's'}`;
@@ -1360,8 +1413,12 @@ function displayLeaveHistory(leaves) {
         const saturdayInfo = leaveData.saturdayWork ? 
             `<br><small class="text-muted"><i class="bi bi-calendar-week me-1"></i>Saturday: ${leaveData.saturdayWork === 'yes' ? 'Working' : 'Non-working'}</small>` : '';
         
+        // Add paternity employment status info if available
+        const paternityInfo = leaveData.paternityEmployment ? 
+            `<br><small class="text-muted"><i class="bi bi-person-badge me-1"></i>Employment: ${leaveData.paternityEmployment === 'probation' ? 'Probation Staff (2 days)' : 'Confirmed Staff (7 days)'}</small>` : '';
+        
         // Add working days calculation info for leave types that use working days calculation
-        const workingDaysInfo = (leaveData.type !== 'maternity' && leaveData.saturdayWork) ? 
+        const workingDaysInfo = (leaveData.type !== 'maternity' && leaveData.type !== 'paternity' && leaveData.saturdayWork) ? 
             `<br><small class="text-muted"><i class="bi bi-calculator me-1"></i>Working days calculation applied</small>` : '';
         
         return `
@@ -1369,7 +1426,7 @@ function displayLeaveHistory(leaves) {
                 <td><span class="badge bg-secondary">${leaveTypeDisplay}</span></td>
                 <td>${startDate}</td>
                 <td>${endDate}</td>
-                <td><strong>${leaveData.duration} day${leaveData.duration === 1 ? '' : 's'}</strong>${saturdayInfo}${workingDaysInfo}</td>
+                <td><strong>${leaveData.duration} day${leaveData.duration === 1 ? '' : 's'}</strong>${saturdayInfo}${paternityInfo}${workingDaysInfo}</td>
                 <td>${leaveData.reason}</td>
                 <td>${statusBadge}</td>
                 <td>
@@ -1606,16 +1663,112 @@ async function deleteLeaveRecord(leaveId) {
 // Calculate duration when dates change
 leaveStartDate.addEventListener('change', calculateLeaveDuration);
 leaveEndDate.addEventListener('change', calculateLeaveDuration);
-leaveType.addEventListener('change', async () => {
-    const duration = await calculateLeaveDuration();
-    // updateBalanceDisplay is already called within calculateLeaveDuration
-});
+
+// Add real-time validation for paternity leave date selection
+leaveStartDate.addEventListener('change', validatePaternityLeaveDates);
+leaveEndDate.addEventListener('change', validatePaternityLeaveDates);
+
+// Function to validate paternity leave dates in real-time
+function validatePaternityLeaveDates() {
+    if (leaveType.value === 'paternity' && leaveStartDate.value && leaveEndDate.value) {
+        const paternityEmploymentOption = document.querySelector('input[name="paternityEmployment"]:checked');
+        const employmentStatus = paternityEmploymentOption ? paternityEmploymentOption.value : 'confirmed';
+        const maxDays = employmentStatus === 'probation' ? 2 : 7;
+        
+        const startDate = new Date(leaveStartDate.value);
+        const endDate = new Date(leaveEndDate.value);
+        const timeDiff = endDate.getTime() - startDate.getTime();
+        const selectedDays = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+        
+        if (selectedDays > maxDays) {
+            // Show warning in the duration display
+            leaveDuration.innerHTML = `<span class="text-danger">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                <strong>${selectedDays} days</strong> 
+                <small class="text-muted">(Exceeds ${maxDays} day${maxDays === 1 ? '' : 's'} limit for ${employmentStatus} staff)</small>
+            </span>`;
+            
+            // Disable the submit button
+            const submitBtn = document.querySelector('#recordLeaveForm button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i>Date Range Exceeds Limit';
+            }
+        } else {
+            // Reset to normal display
+            leaveDuration.textContent = `${selectedDays} day${selectedDays === 1 ? '' : 's'} (Manual selection)`;
+            
+            // Enable the submit button
+            const submitBtn = document.querySelector('#recordLeaveForm button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Record Leave';
+            }
+        }
+    }
+}
+// This event listener is now handled by the new paternity-specific handler above
 
 // Handle Saturday work option changes
 document.addEventListener('change', (e) => {
     if (e.target.name === 'saturdayWork') {
         // Recalculate duration when Saturday work option changes
         calculateLeaveDuration();
+    }
+});
+
+// Handle paternity employment status option changes
+document.addEventListener('change', (e) => {
+    if (e.target.name === 'paternityEmployment') {
+        // Recalculate duration when paternity employment status changes
+        calculateLeaveDuration();
+        
+        // Also validate dates if they are manually selected
+        validatePaternityLeaveDates();
+    }
+});
+
+// Handle paternity leave selection
+leaveType.addEventListener('change', async (e) => {
+    if (e.target.value === 'paternity') {
+        // Show paternity employment status option immediately
+        document.getElementById('paternityEmploymentOption').style.display = 'block';
+        document.getElementById('saturdayWorkOption').style.display = 'none';
+        
+        // Show note about automatic date setting
+        document.getElementById('paternityDateNote').style.display = 'block';
+        
+        // Make date fields optional for paternity leave
+        document.getElementById('leaveStartDate').required = false;
+        document.getElementById('leaveEndDate').required = false;
+        
+        // Calculate and display paternity leave duration immediately
+        const paternityEmploymentOption = document.querySelector('input[name="paternityEmployment"]:checked');
+        const employmentStatus = paternityEmploymentOption ? paternityEmploymentOption.value : 'confirmed';
+        const daysDiff = employmentStatus === 'probation' ? 2 : 7;
+        
+        leaveDuration.textContent = `${daysDiff} day${daysDiff === 1 ? '' : 's'} (Fixed based on employment status)`;
+        
+        // Reset submit button to normal state
+        const submitBtn = document.querySelector('#recordLeaveForm button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Record Leave';
+        }
+        
+        // Update balance display
+        await updateBalanceDisplay(daysDiff);
+    } else {
+        // Hide paternity employment option for other leave types
+        document.getElementById('paternityEmploymentOption').style.display = 'none';
+        document.getElementById('paternityDateNote').style.display = 'none';
+        
+        // Make date fields required for other leave types
+        document.getElementById('leaveStartDate').required = true;
+        document.getElementById('leaveEndDate').required = true;
+        
+        // Calculate duration normally for other leave types
+        const duration = await calculateLeaveDuration();
     }
 });
 
@@ -1633,19 +1786,65 @@ recordLeaveForm.addEventListener('submit', async (e) => {
     const saturdayWorkOption = document.querySelector('input[name="saturdayWork"]:checked');
     const saturdayWork = saturdayWorkOption ? saturdayWorkOption.value : 'no';
     
+    // Get paternity employment status
+    const paternityEmploymentOption = document.querySelector('input[name="paternityEmployment"]:checked');
+    const paternityEmployment = paternityEmploymentOption ? paternityEmploymentOption.value : 'confirmed';
+    
+    // Set default dates for paternity leave if not provided
+    let startDate = leaveStartDate.value;
+    let endDate = leaveEndDate.value;
+    
+    if (leaveType.value === 'paternity') {
+        // For paternity leave, use current date as start date and calculate end date based on duration
+        const today = new Date();
+        startDate = today.toISOString().split('T')[0];
+        
+        // Calculate end date based on duration
+        const endDateObj = new Date(today);
+        endDateObj.setDate(today.getDate() + duration - 1);
+        endDate = endDateObj.toISOString().split('T')[0];
+    }
+    
     const leaveData = {
         type: leaveType.value,
-        startDate: leaveStartDate.value,
-        endDate: leaveEndDate.value,
+        startDate: startDate,
+        endDate: endDate,
         duration: duration,
         reason: leaveReason.value.trim(),
-        saturdayWork: saturdayWork
+        saturdayWork: saturdayWork,
+        paternityEmployment: leaveType.value === 'paternity' ? paternityEmployment : null
     };
     
     // Validation
-    if (!leaveData.type || !leaveData.startDate || !leaveData.endDate || !leaveData.reason) {
+    if (!leaveData.type || !leaveData.reason) {
         showAlert('Please fill in all required fields.');
         return;
+    }
+    
+    // For paternity leave, dates are not required as it uses fixed days
+    if (leaveData.type !== 'paternity' && (!leaveData.startDate || !leaveData.endDate)) {
+        showAlert('Please select start and end dates.');
+        return;
+    }
+    
+    // For paternity leave, validate that selected dates don't exceed the fixed duration
+    if (leaveData.type === 'paternity') {
+        const paternityEmploymentOption = document.querySelector('input[name="paternityEmployment"]:checked');
+        const employmentStatus = paternityEmploymentOption ? paternityEmploymentOption.value : 'confirmed';
+        const maxDays = employmentStatus === 'probation' ? 2 : 7;
+        
+        // Check if user manually selected dates that exceed the allowed duration
+        if (leaveStartDate.value && leaveEndDate.value) {
+            const startDate = new Date(leaveStartDate.value);
+            const endDate = new Date(leaveEndDate.value);
+            const timeDiff = endDate.getTime() - startDate.getTime();
+            const selectedDays = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+            
+            if (selectedDays > maxDays) {
+                showAlert(`Paternity leave for ${employmentStatus} staff is limited to ${maxDays} day${maxDays === 1 ? '' : 's'}. Selected period is ${selectedDays} days. Please adjust the date range or let the system auto-set the dates.`);
+                return;
+            }
+        }
     }
     
     // Check leave balance before recording
@@ -1697,6 +1896,7 @@ recordLeaveForm.addEventListener('submit', async (e) => {
         leaveDuration.textContent = 'Select dates to calculate duration';
         balanceCheck.style.display = 'none';
         document.getElementById('saturdayWorkOption').style.display = 'none';
+        document.getElementById('paternityEmploymentOption').style.display = 'none';
         
         // Refresh the main employee table to update leave balance
         if (selectedCompanyId) {
