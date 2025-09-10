@@ -239,26 +239,37 @@ function testSaturdayDetection() {
 function testWorkingDaysCalculation() {
     console.log('Testing working days calculation:');
     
-    // Test case 1: Monday to Friday (5 days) - no Saturday
+    // Test Annual Leave
+    console.log('=== Annual Leave Tests ===');
     console.log('Mon-Fri (5 days, no Saturday):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-05', 'annual', 'no')); // Should be 5
-    
-    // Test case 2: Monday to Saturday (6 days) - Saturday not working
     console.log('Mon-Sat (6 days, Saturday not working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'annual', 'no')); // Should be 5
-    
-    // Test case 3: Monday to Saturday (6 days) - Saturday working
     console.log('Mon-Sat (6 days, Saturday working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'annual', 'yes')); // Should be 6
     
-    // Test case 4: Friday to Sunday (3 days) - Saturday not working
-    console.log('Fri-Sun (3 days, Saturday not working):', calculateLeaveDurationWithSaturday('2024-01-05', '2024-01-07', 'annual', 'no')); // Should be 1 (Friday only)
+    // Test Medical Leave
+    console.log('=== Medical Leave Tests ===');
+    console.log('Mon-Fri (5 days, no Saturday):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-05', 'medical', 'no')); // Should be 5
+    console.log('Mon-Sat (6 days, Saturday not working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'medical', 'no')); // Should be 5
+    console.log('Mon-Sat (6 days, Saturday working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'medical', 'yes')); // Should be 6
     
-    // Test case 5: Friday to Sunday (3 days) - Saturday working
-    console.log('Fri-Sun (3 days, Saturday working):', calculateLeaveDurationWithSaturday('2024-01-05', '2024-01-07', 'annual', 'yes')); // Should be 2 (Friday + Saturday)
+    // Test Emergency Leave
+    console.log('=== Emergency Leave Tests ===');
+    console.log('Fri-Sun (3 days, Saturday not working):', calculateLeaveDurationWithSaturday('2024-01-05', '2024-01-07', 'emergency', 'no')); // Should be 1 (Friday only)
+    console.log('Fri-Sun (3 days, Saturday working):', calculateLeaveDurationWithSaturday('2024-01-05', '2024-01-07', 'emergency', 'yes')); // Should be 2 (Friday + Saturday)
     
-    // Test case 6: Just Saturday - not working
-    console.log('Just Saturday (not working):', calculateLeaveDurationWithSaturday('2024-01-06', '2024-01-06', 'annual', 'no')); // Should be 0
+    // Test Compassionate Leave
+    console.log('=== Compassionate Leave Tests ===');
+    console.log('Just Saturday (not working):', calculateLeaveDurationWithSaturday('2024-01-06', '2024-01-06', 'compassionate', 'no')); // Should be 0
+    console.log('Just Saturday (working):', calculateLeaveDurationWithSaturday('2024-01-06', '2024-01-06', 'compassionate', 'yes')); // Should be 1
     
-    // Test case 7: Just Saturday - working
-    console.log('Just Saturday (working):', calculateLeaveDurationWithSaturday('2024-01-06', '2024-01-06', 'annual', 'yes')); // Should be 1
+    // Test Paternity Leave
+    console.log('=== Paternity Leave Tests ===');
+    console.log('Mon-Sat (6 days, Saturday not working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'paternity', 'no')); // Should be 5
+    console.log('Mon-Sat (6 days, Saturday working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'paternity', 'yes')); // Should be 6
+    
+    // Test Unpaid Leave
+    console.log('=== Unpaid Leave Tests ===');
+    console.log('Mon-Sat (6 days, Saturday not working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'unpaid', 'no')); // Should be 5
+    console.log('Mon-Sat (6 days, Saturday working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'unpaid', 'yes')); // Should be 6
 }
 
 // Check if a year is a leap year
@@ -1145,12 +1156,12 @@ async function calculateLeaveDuration() {
     
     if (leaveStartDate.value && leaveEndDate.value) {
         if (endDate >= startDate) {
-            // Check if this is Annual Leave and includes Saturday
-            if (leaveType.value === 'annual' && hasSaturdayInRange(leaveStartDate.value, leaveEndDate.value)) {
-                // Show Saturday work option
+            // Check if this leave type needs Saturday work option (all except maternity) and includes Saturday
+            if (leaveType.value !== 'maternity' && hasSaturdayInRange(leaveStartDate.value, leaveEndDate.value)) {
+                // Show Saturday work option for all leave types except maternity
                 document.getElementById('saturdayWorkOption').style.display = 'block';
             } else {
-                // Hide Saturday work option
+                // Hide Saturday work option for maternity leave or when no Saturday in range
                 document.getElementById('saturdayWorkOption').style.display = 'none';
             }
             
@@ -1160,11 +1171,15 @@ async function calculateLeaveDuration() {
             
             // Calculate duration based on leave type and Saturday work schedule
             let daysDiff;
-            if (leaveType.value === 'annual') {
-                // For annual leave, use working days calculation
+            if (leaveType.value === 'annual' || (leaveType.value !== 'maternity' && leaveType.value !== 'annual')) {
+                // For annual leave and other leave types (except maternity), use working days calculation
                 daysDiff = calculateLeaveDurationWithSaturday(leaveStartDate.value, leaveEndDate.value, leaveType.value, saturdayWork);
+            } else if (leaveType.value === 'maternity') {
+                // For maternity leave, use simple day count (include all days)
+                const timeDiff = endDate.getTime() - startDate.getTime();
+                daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
             } else {
-                // For other leave types, use simple day count
+                // Fallback to simple day count
                 const timeDiff = endDate.getTime() - startDate.getTime();
                 daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
             }
@@ -1345,8 +1360,8 @@ function displayLeaveHistory(leaves) {
         const saturdayInfo = leaveData.saturdayWork ? 
             `<br><small class="text-muted"><i class="bi bi-calendar-week me-1"></i>Saturday: ${leaveData.saturdayWork === 'yes' ? 'Working' : 'Non-working'}</small>` : '';
         
-        // Add working days calculation info for annual leave
-        const workingDaysInfo = leaveData.type === 'annual' && leaveData.saturdayWork ? 
+        // Add working days calculation info for leave types that use working days calculation
+        const workingDaysInfo = (leaveData.type !== 'maternity' && leaveData.saturdayWork) ? 
             `<br><small class="text-muted"><i class="bi bi-calculator me-1"></i>Working days calculation applied</small>` : '';
         
         return `
