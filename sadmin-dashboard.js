@@ -39,6 +39,18 @@ const userModalTitle = document.getElementById('userModalTitle');
 const userSubmitBtnText = document.getElementById('userSubmitBtnText');
 const passwordSection = document.getElementById('passwordSection');
 
+// Holiday Management Elements
+const manageHolidaysBtn = document.getElementById('manageHolidaysBtn');
+const addHolidayBtn = document.getElementById('addHolidayBtn');
+const createHolidayModal = new bootstrap.Modal(document.getElementById('createHolidayModal'));
+const createHolidayForm = document.getElementById('createHolidayForm');
+const createHolidaySubmitBtn = document.getElementById('createHolidaySubmitBtn');
+const createHolidaySpinner = document.getElementById('createHolidaySpinner');
+const refreshHolidaysBtn = document.getElementById('refreshHolidaysBtn');
+const holidaysTableBody = document.getElementById('holidaysTableBody');
+const holidayModalTitle = document.getElementById('holidayModalTitle');
+const holidaySubmitBtnText = document.getElementById('holidaySubmitBtnText');
+
 const alertContainer = document.getElementById('alertContainer');
 
 // Stats elements
@@ -54,6 +66,7 @@ let currentUserRole = null;
 // Edit state tracking
 let editingCompanyId = null;
 let editingUserId = null;
+let editingHolidayId = null;
 
 // Utility Functions
 function showAlert(message, type = 'danger') {
@@ -457,7 +470,8 @@ function displayUsers(users) {
 async function loadData() {
     const [companies, users] = await Promise.all([
         loadCompanies(),
-        loadUsers()
+        loadUsers(),
+        loadHolidays()
     ]);
     updateStats(companies, users);
     await loadCompanyPermissionsInCreateForm();
@@ -697,6 +711,159 @@ async function updateCompanyUserCounts() {
     }
 }
 
+// Public Holidays Management Functions
+
+// Load all public holidays from database
+async function loadHolidays() {
+    try {
+        const holidaysRef = window.firebaseRef(window.firebaseDatabase, 'publicHolidays');
+        const snapshot = await window.firebaseGet(holidaysRef);
+        
+        if (snapshot.exists()) {
+            const holidays = snapshot.val();
+            displayHolidays(holidays);
+            return holidays;
+        } else {
+            holidaysTableBody.innerHTML = '<tr><td colspan="6" class="text-center">No public holidays found</td></tr>';
+            return {};
+        }
+    } catch (error) {
+        console.error('Error loading holidays:', error);
+        showAlert('Failed to load public holidays. Please try again.');
+        holidaysTableBody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error loading holidays</td></tr>';
+        return {};
+    }
+}
+
+// Display holidays in table
+function displayHolidays(holidays) {
+    const holidayEntries = Object.entries(holidays || {});
+    
+    if (holidayEntries.length === 0) {
+        holidaysTableBody.innerHTML = '<tr><td colspan="6" class="text-center">No public holidays found</td></tr>';
+        return;
+    }
+    
+    // Sort holidays by date (newest first)
+    holidayEntries.sort(([,a], [,b]) => new Date(b.date) - new Date(a.date));
+    
+    const tableRows = holidayEntries.map(([holidayId, holidayData]) => {
+        const holidayDate = new Date(holidayData.date).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: '2-digit', 
+            year: 'numeric'
+        });
+        
+        // Get type badge
+        const typeBadge = getHolidayTypeBadge(holidayData.type);
+        
+        // Recurring indicator
+        const recurringIndicator = holidayData.recurring ? 
+            '<i class="bi bi-arrow-repeat text-primary ms-1" title="Recurring Annual Holiday"></i>' : '';
+        
+        return `
+            <tr>
+                <td><strong>${holidayData.name}</strong>${recurringIndicator}</td>
+                <td>${holidayDate}</td>
+                <td>${typeBadge}</td>
+                <td>${holidayData.description || '-'}</td>
+                <td>${formatDate(holidayData.createdAt)}</td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" onclick="editHoliday('${holidayId}')" title="Edit Holiday">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="deleteHoliday('${holidayId}', '${holidayData.name}')" title="Delete Holiday">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+    
+    holidaysTableBody.innerHTML = tableRows;
+}
+
+// Get holiday type badge
+function getHolidayTypeBadge(type) {
+    switch (type) {
+        case 'national':
+            return '<span class="badge bg-danger">National</span>';
+        case 'religious':
+            return '<span class="badge bg-warning">Religious</span>';
+        case 'cultural':
+            return '<span class="badge bg-info">Cultural</span>';
+        case 'company':
+            return '<span class="badge bg-success">Company</span>';
+        case 'other':
+            return '<span class="badge bg-secondary">Other</span>';
+        default:
+            return '<span class="badge bg-light text-dark">Unknown</span>';
+    }
+}
+
+// Create or update holiday
+async function saveHoliday(holidayData, isEdit = false) {
+    try {
+        const holidayId = isEdit ? editingHolidayId : 'holiday_' + Date.now();
+        
+        // Prepare holiday data
+        const fullHolidayData = {
+            ...holidayData,
+            recurring: holidayData.recurring || false
+        };
+        
+        if (isEdit) {
+            // Get existing data to preserve certain fields
+            const existingRef = window.firebaseRef(window.firebaseDatabase, `publicHolidays/${holidayId}`);
+            const existingSnapshot = await window.firebaseGet(existingRef);
+            if (existingSnapshot.exists()) {
+                const existingData = existingSnapshot.val();
+                fullHolidayData.createdAt = existingData.createdAt;
+            }
+            fullHolidayData.updatedAt = new Date().toISOString();
+        } else {
+            fullHolidayData.createdAt = new Date().toISOString();
+        }
+        
+        // Save holiday in database
+        const holidayRef = window.firebaseRef(window.firebaseDatabase, `publicHolidays/${holidayId}`);
+        await window.firebaseSet(holidayRef, fullHolidayData);
+        
+        showAlert(`Public holiday "${holidayData.name}" ${isEdit ? 'updated' : 'created'} successfully!`, 'success');
+        
+        // Refresh holidays list
+        loadHolidays();
+        
+        return true;
+    } catch (error) {
+        console.error('Error saving holiday:', error);
+        showAlert(`Failed to ${isEdit ? 'update' : 'create'} holiday. Please try again.`);
+        return false;
+    }
+}
+
+// Delete holiday
+async function deleteHolidayAction(holidayId) {
+    try {
+        // Delete holiday
+        const holidayRef = window.firebaseRef(window.firebaseDatabase, `publicHolidays/${holidayId}`);
+        await window.firebaseSet(holidayRef, null);
+        
+        showAlert('Public holiday deleted successfully!', 'success');
+        
+        // Refresh holidays list
+        loadHolidays();
+        
+        return true;
+    } catch (error) {
+        console.error('Error deleting holiday:', error);
+        showAlert('Failed to delete holiday. Please try again.');
+        return false;
+    }
+}
+
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
     // Check authentication
@@ -905,6 +1072,23 @@ refreshUsersBtn.addEventListener('click', (e) => {
     loadData();
 });
 
+// Holiday management buttons
+manageHolidaysBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    openHolidayModal();
+});
+
+addHolidayBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    openHolidayModal();
+});
+
+// Refresh holidays
+refreshHolidaysBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    loadHolidays();
+});
+
 // Global functions for company table actions
 window.editCompany = async function(companyId) {
     try {
@@ -951,6 +1135,92 @@ window.editUser = async function(userId) {
 window.deleteUser = function(userId, userEmail) {
     if (confirm(`Are you sure you want to delete user: ${userEmail}?\n\nThis action cannot be undone.`)) {
         deleteUserAction(userId);
+    }
+};
+
+// Open holiday modal for adding/editing
+function openHolidayModal(holidayData = null, holidayId = null) {
+    editingHolidayId = holidayId;
+    
+    if (holidayData) {
+        // Edit mode
+        holidayModalTitle.textContent = 'Edit Public Holiday';
+        holidaySubmitBtnText.textContent = 'Update Holiday';
+        
+        // Populate form
+        document.getElementById('newHolidayName').value = holidayData.name || '';
+        document.getElementById('newHolidayDate').value = holidayData.date || '';
+        document.getElementById('newHolidayType').value = holidayData.type || '';
+        document.getElementById('newHolidayDescription').value = holidayData.description || '';
+        document.getElementById('newHolidayRecurring').checked = holidayData.recurring || false;
+    } else {
+        // Add mode
+        holidayModalTitle.textContent = 'Add New Public Holiday';
+        holidaySubmitBtnText.textContent = 'Add Holiday';
+        createHolidayForm.reset();
+    }
+    
+    createHolidayModal.show();
+}
+
+// Create holiday form submission
+createHolidayForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const name = document.getElementById('newHolidayName').value.trim();
+    const date = document.getElementById('newHolidayDate').value;
+    const type = document.getElementById('newHolidayType').value;
+    const description = document.getElementById('newHolidayDescription').value.trim();
+    const recurring = document.getElementById('newHolidayRecurring').checked;
+    
+    if (!name || !date || !type) {
+        showAlert('Please fill in all required fields.');
+        return;
+    }
+    
+    setLoading(createHolidaySubmitBtn, true, createHolidaySpinner);
+    
+    const isEdit = !!editingHolidayId;
+    const holidayData = {
+        name: name,
+        date: date,
+        type: type,
+        description: description,
+        recurring: recurring
+    };
+    
+    const success = await saveHoliday(holidayData, isEdit);
+    
+    if (success) {
+        createHolidayForm.reset();
+        createHolidayModal.hide();
+        editingHolidayId = null;
+    }
+    
+    setLoading(createHolidaySubmitBtn, false, createHolidaySpinner, isEdit ? 'Update Holiday' : 'Add Holiday');
+});
+
+// Global functions for holiday table actions
+window.editHoliday = async function(holidayId) {
+    try {
+        const holidayRef = window.firebaseRef(window.firebaseDatabase, `publicHolidays/${holidayId}`);
+        const snapshot = await window.firebaseGet(holidayRef);
+        
+        if (snapshot.exists()) {
+            const holidayData = snapshot.val();
+            openHolidayModal(holidayData, holidayId);
+        } else {
+            showAlert('Holiday not found.');
+        }
+    } catch (error) {
+        console.error('Error loading holiday data:', error);
+        showAlert('Failed to load holiday data.');
+    }
+};
+
+window.deleteHoliday = function(holidayId, holidayName) {
+    if (confirm(`Are you sure you want to delete holiday: ${holidayName}?\n\nThis action cannot be undone.`)) {
+        deleteHolidayAction(holidayId);
     }
 };
 

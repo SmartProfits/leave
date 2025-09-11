@@ -63,6 +63,10 @@ const leaveHistoryTableBody = document.getElementById('leaveHistoryTableBody');
 const refreshLeaveHistoryBtn = document.getElementById('refreshLeaveHistoryBtn');
 const downloadPdfBtn = document.getElementById('downloadPdfBtn');
 
+// Public holidays elements
+const holidaysContainer = document.getElementById('holidaysContainer');
+const refreshHolidaysBtn = document.getElementById('refreshHolidaysBtn');
+
 // Leave summary elements
 const usedAnnualLeave = document.getElementById('usedAnnualLeave');
 const remainingAnnualLeave = document.getElementById('remainingAnnualLeave');
@@ -235,47 +239,47 @@ function testSaturdayDetection() {
     console.log('2024-01-08 to 2024-01-12 (no Saturday):', hasSaturdayInRange('2024-01-08', '2024-01-12')); // Should be false
 }
 
-// Test function to verify working days calculation
-function testWorkingDaysCalculation() {
-    console.log('Testing working days calculation:');
+// Test function to verify working days calculation (now async)
+async function testWorkingDaysCalculation() {
+    console.log('Testing working days calculation with public holidays:');
     
     // Test Annual Leave
     console.log('=== Annual Leave Tests ===');
-    console.log('Mon-Fri (5 days, no Saturday):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-05', 'annual', 'no')); // Should be 5
-    console.log('Mon-Sat (6 days, Saturday not working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'annual', 'no')); // Should be 5
-    console.log('Mon-Sat (6 days, Saturday working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'annual', 'yes')); // Should be 6
+    console.log('Mon-Fri (5 days, no Saturday):', await calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-05', 'annual', 'no')); // Should exclude public holidays
+    console.log('Mon-Sat (6 days, Saturday not working):', await calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'annual', 'no')); // Should exclude public holidays
+    console.log('Mon-Sat (6 days, Saturday working):', await calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'annual', 'yes')); // Should exclude public holidays
     
     // Test Medical Leave
     console.log('=== Medical Leave Tests ===');
-    console.log('Mon-Fri (5 days, no Saturday):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-05', 'medical', 'no')); // Should be 5
-    console.log('Mon-Sat (6 days, Saturday not working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'medical', 'no')); // Should be 5
-    console.log('Mon-Sat (6 days, Saturday working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'medical', 'yes')); // Should be 6
+    console.log('Mon-Fri (5 days, no Saturday):', await calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-05', 'medical', 'no')); // Should exclude public holidays
+    console.log('Mon-Sat (6 days, Saturday not working):', await calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'medical', 'no')); // Should exclude public holidays
+    console.log('Mon-Sat (6 days, Saturday working):', await calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'medical', 'yes')); // Should exclude public holidays
     
     // Test Emergency Leave
     console.log('=== Emergency Leave Tests ===');
-    console.log('Fri-Sun (3 days, Saturday not working):', calculateLeaveDurationWithSaturday('2024-01-05', '2024-01-07', 'emergency', 'no')); // Should be 1 (Friday only)
-    console.log('Fri-Sun (3 days, Saturday working):', calculateLeaveDurationWithSaturday('2024-01-05', '2024-01-07', 'emergency', 'yes')); // Should be 2 (Friday + Saturday)
+    console.log('Fri-Sun (3 days, Saturday not working):', await calculateLeaveDurationWithSaturday('2024-01-05', '2024-01-07', 'emergency', 'no')); // Should exclude public holidays
+    console.log('Fri-Sun (3 days, Saturday working):', await calculateLeaveDurationWithSaturday('2024-01-05', '2024-01-07', 'emergency', 'yes')); // Should exclude public holidays
     
     // Test Compassionate Leave
     console.log('=== Compassionate Leave Tests ===');
-    console.log('Just Saturday (not working):', calculateLeaveDurationWithSaturday('2024-01-06', '2024-01-06', 'compassionate', 'no')); // Should be 0
-    console.log('Just Saturday (working):', calculateLeaveDurationWithSaturday('2024-01-06', '2024-01-06', 'compassionate', 'yes')); // Should be 1
+    console.log('Just Saturday (not working):', await calculateLeaveDurationWithSaturday('2024-01-06', '2024-01-06', 'compassionate', 'no')); // Should exclude public holidays
+    console.log('Just Saturday (working):', await calculateLeaveDurationWithSaturday('2024-01-06', '2024-01-06', 'compassionate', 'yes')); // Should exclude public holidays
     
     // Test Unpaid Leave
     console.log('=== Unpaid Leave Tests ===');
-    console.log('Mon-Sat (6 days, Saturday not working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'unpaid', 'no')); // Should be 5
-    console.log('Mon-Sat (6 days, Saturday working):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'unpaid', 'yes')); // Should be 6
+    console.log('Mon-Sat (6 days, Saturday not working):', await calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'unpaid', 'no')); // Should exclude public holidays
+    console.log('Mon-Sat (6 days, Saturday working):', await calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'unpaid', 'yes')); // Should exclude public holidays
 }
 
-// Test function to verify simple day count calculation for Maternity Leave
-function testMaternityLeaveCalculation() {
-    console.log('Testing Maternity Leave calculation (Simple Day Count):');
+// Test function to verify simple day count calculation for Maternity Leave (now async)
+async function testMaternityLeaveCalculation() {
+    console.log('Testing Maternity Leave calculation (Simple Day Count - includes public holidays):');
     
     // Test Maternity Leave
     console.log('=== Maternity Leave Tests (Simple Day Count) ===');
-    console.log('Mon-Sat (6 days):', calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'maternity', 'no')); // Should be 6
-    console.log('Fri-Sun (3 days):', calculateLeaveDurationWithSaturday('2024-01-05', '2024-01-07', 'maternity', 'yes')); // Should be 3
-    console.log('Just Saturday (1 day):', calculateLeaveDurationWithSaturday('2024-01-06', '2024-01-06', 'maternity', 'no')); // Should be 1
+    console.log('Mon-Sat (6 days):', await calculateLeaveDurationWithSaturday('2024-01-01', '2024-01-06', 'maternity', 'no')); // Should include public holidays
+    console.log('Fri-Sun (3 days):', await calculateLeaveDurationWithSaturday('2024-01-05', '2024-01-07', 'maternity', 'yes')); // Should include public holidays
+    console.log('Just Saturday (1 day):', await calculateLeaveDurationWithSaturday('2024-01-06', '2024-01-06', 'maternity', 'no')); // Should include public holidays
 }
 
 // Test function to verify paternity leave employment status calculation
@@ -704,8 +708,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check authentication
     if (!checkAuth()) return;
     
-    // Load user companies
+    // Load user companies and public holidays
     loadUserCompanies();
+    loadPublicHolidays();
 });
 
 // Company selection change
@@ -751,6 +756,12 @@ refreshEmployeesBtn.addEventListener('click', (e) => {
     if (selectedCompanyId) {
         loadEmployees(selectedCompanyId);
     }
+});
+
+// Refresh public holidays
+refreshHolidaysBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    loadPublicHolidays();
 });
 
 // Open employee modal for adding/editing
@@ -1158,18 +1169,30 @@ function hasSaturdayInRange(startDate, endDate) {
     return false;
 }
 
-// Calculate leave duration considering Saturday work schedule
-function calculateLeaveDurationWithSaturday(startDate, endDate, leaveType, saturdayWork = 'no') {
+// Calculate leave duration considering Saturday work schedule and public holidays
+async function calculateLeaveDurationWithSaturday(startDate, endDate, leaveType, saturdayWork = 'no') {
     const start = new Date(startDate);
     const end = new Date(endDate);
     let workingDays = 0;
     
-    // Count working days (excluding Sundays)
+    // Get public holidays to exclude (except for maternity and paternity leave)
+    let publicHolidays = [];
+    if (leaveType !== 'maternity' && leaveType !== 'paternity') {
+        publicHolidays = await getPublicHolidaysInRange(startDate, endDate);
+    }
+    
+    // Count working days (excluding Sundays and public holidays)
     for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
         const dayOfWeek = date.getDay();
+        const dateStr = date.toISOString().split('T')[0]; // Format: YYYY-MM-DD
         
         // Always exclude Sundays (0)
         if (dayOfWeek === 0) {
+            continue;
+        }
+        
+        // Exclude public holidays (except for maternity and paternity leave)
+        if (leaveType !== 'maternity' && leaveType !== 'paternity' && publicHolidays.includes(dateStr)) {
             continue;
         }
         
@@ -1217,7 +1240,7 @@ async function calculateLeaveDuration() {
             let daysDiff;
             if (leaveType.value === 'maternity') {
                 // For maternity leave, use simple day count (include all days)
-                const timeDiff = endDate.getTime() - startDate.getTime();
+            const timeDiff = endDate.getTime() - startDate.getTime();
                 daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
             } else if (leaveType.value === 'paternity') {
                 // For paternity leave, use fixed days based on employment status
@@ -1234,7 +1257,7 @@ async function calculateLeaveDuration() {
                 return daysDiff;
             } else {
                 // For all other leave types, use working days calculation
-                daysDiff = calculateLeaveDurationWithSaturday(leaveStartDate.value, leaveEndDate.value, leaveType.value, saturdayWork);
+                daysDiff = await calculateLeaveDurationWithSaturday(leaveStartDate.value, leaveEndDate.value, leaveType.value, saturdayWork);
             }
             
             leaveDuration.textContent = `${daysDiff} day${daysDiff === 1 ? '' : 's'}`;
@@ -1343,17 +1366,31 @@ async function recordLeave(leaveData) {
         const leaveId = 'leave_' + Date.now();
         const leaveRef = window.firebaseRef(window.firebaseDatabase, `leaves/${selectedCompanyId}/${currentEmployeeId}/${leaveId}`);
         
+        // Calculate how many public holidays were excluded (except for maternity and paternity leave)
+        let publicHolidaysExcluded = 0;
+        if (leaveData.type !== 'maternity' && leaveData.type !== 'paternity') {
+            const publicHolidays = await getPublicHolidaysInRange(leaveData.startDate, leaveData.endDate);
+            publicHolidaysExcluded = publicHolidays.length;
+        }
+        
         const leaveRecord = {
             ...leaveData,
             employeeId: currentEmployeeId,
             companyId: selectedCompanyId,
             status: 'approved', // Auto-approve for now
             createdAt: new Date().toISOString(),
-            createdBy: currentUser.uid
+            createdBy: currentUser.uid,
+            publicHolidaysExcluded: publicHolidaysExcluded
         };
         
         await window.firebaseSet(leaveRef, leaveRecord);
-        showAlert(`Leave recorded successfully! ${leaveData.duration} day${leaveData.duration === 1 ? '' : 's'} of ${leaveData.type} leave has been deducted from balance.`, 'success');
+        
+        let successMessage = `Leave recorded successfully! ${leaveData.duration} day${leaveData.duration === 1 ? '' : 's'} of ${leaveData.type} leave has been deducted from balance.`;
+        if (publicHolidaysExcluded > 0) {
+            successMessage += ` ${publicHolidaysExcluded} public holiday${publicHolidaysExcluded === 1 ? '' : 's'} excluded from calculation.`;
+        }
+        
+        showAlert(successMessage, 'success');
         
         // Refresh leave history and summary
         await loadLeaveHistory(currentEmployeeId);
@@ -1421,12 +1458,16 @@ function displayLeaveHistory(leaves) {
         const workingDaysInfo = (leaveData.type !== 'maternity' && leaveData.type !== 'paternity' && leaveData.saturdayWork) ? 
             `<br><small class="text-muted"><i class="bi bi-calculator me-1"></i>Working days calculation applied</small>` : '';
         
+        // Add public holidays info if available
+        const publicHolidaysInfo = leaveData.publicHolidaysExcluded ? 
+            `<br><small class="text-success"><i class="bi bi-calendar-event me-1"></i>Public holidays excluded (${leaveData.publicHolidaysExcluded} day${leaveData.publicHolidaysExcluded === 1 ? '' : 's'})</small>` : '';
+        
         return `
             <tr>
                 <td><span class="badge bg-secondary">${leaveTypeDisplay}</span></td>
                 <td>${startDate}</td>
                 <td>${endDate}</td>
-                <td><strong>${leaveData.duration} day${leaveData.duration === 1 ? '' : 's'}</strong>${saturdayInfo}${paternityInfo}${workingDaysInfo}</td>
+                <td><strong>${leaveData.duration} day${leaveData.duration === 1 ? '' : 's'}</strong>${saturdayInfo}${paternityInfo}${workingDaysInfo}${publicHolidaysInfo}</td>
                 <td>${leaveData.reason}</td>
                 <td>${statusBadge}</td>
                 <td>
@@ -1768,7 +1809,7 @@ leaveType.addEventListener('change', async (e) => {
         document.getElementById('leaveEndDate').required = true;
         
         // Calculate duration normally for other leave types
-        const duration = await calculateLeaveDuration();
+    const duration = await calculateLeaveDuration();
     }
 });
 
@@ -1914,6 +1955,196 @@ refreshLeaveHistoryBtn.addEventListener('click', () => {
 
 // Download PDF
 downloadPdfBtn.addEventListener('click', generatePDF);
+
+// Public Holidays Functions
+
+// Get public holidays within a specific date range
+async function getPublicHolidaysInRange(startDate, endDate) {
+    try {
+        const holidaysRef = window.firebaseRef(window.firebaseDatabase, 'publicHolidays');
+        const snapshot = await window.firebaseGet(holidaysRef);
+        
+        if (!snapshot.exists()) {
+            return [];
+        }
+        
+        const holidays = snapshot.val();
+        const holidayDates = [];
+        
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        
+        Object.values(holidays).forEach(holiday => {
+            const holidayDate = new Date(holiday.date);
+            
+            // Check if holiday falls within the date range
+            if (holidayDate >= start && holidayDate <= end) {
+                holidayDates.push(holiday.date); // Return date in YYYY-MM-DD format
+            }
+        });
+        
+        return holidayDates;
+    } catch (error) {
+        console.error('Error fetching public holidays:', error);
+        return []; // Return empty array if error occurs
+    }
+}
+
+// Load and display public holidays
+async function loadPublicHolidays() {
+    try {
+        const holidaysRef = window.firebaseRef(window.firebaseDatabase, 'publicHolidays');
+        const snapshot = await window.firebaseGet(holidaysRef);
+        
+        if (snapshot.exists()) {
+            const holidays = snapshot.val();
+            displayPublicHolidays(holidays);
+        } else {
+            holidaysContainer.innerHTML = `
+                <div class="col-12 text-center text-muted">
+                    <i class="bi bi-calendar-x display-4 mb-2"></i>
+                    <p>No public holidays found</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading public holidays:', error);
+        holidaysContainer.innerHTML = `
+            <div class="col-12 text-center text-danger">
+                <i class="bi bi-exclamation-triangle display-4 mb-2"></i>
+                <p>Failed to load public holidays</p>
+            </div>
+        `;
+    }
+}
+
+// Display public holidays in cards
+function displayPublicHolidays(holidays) {
+    const holidayEntries = Object.entries(holidays || {});
+    
+    if (holidayEntries.length === 0) {
+        holidaysContainer.innerHTML = `
+            <div class="col-12 text-center text-muted">
+                <i class="bi bi-calendar-x display-4 mb-2"></i>
+                <p>No public holidays found</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Sort holidays by date (upcoming first)
+    const currentDate = new Date();
+    holidayEntries.sort(([,a], [,b]) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        
+        // Separate current year holidays from others
+        const yearA = dateA.getFullYear();
+        const yearB = dateB.getFullYear();
+        const currentYear = currentDate.getFullYear();
+        
+        // Prioritize current year holidays
+        if (yearA === currentYear && yearB !== currentYear) return -1;
+        if (yearB === currentYear && yearA !== currentYear) return 1;
+        
+        // Within same priority, sort by date
+        return dateA - dateB;
+    });
+    
+    // Take only the next 6 holidays for display
+    const displayHolidays = holidayEntries.slice(0, 6);
+    
+    const holidayCards = displayHolidays.map(([holidayId, holidayData]) => {
+        const holidayDate = new Date(holidayData.date);
+        const isUpcoming = holidayDate >= currentDate;
+        const isPast = holidayDate < currentDate;
+        
+        // Format date
+        const dateDisplay = holidayDate.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        });
+        
+        // Get days until/since holiday
+        const timeDiff = holidayDate.getTime() - currentDate.getTime();
+        const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+        
+        let timeIndicator = '';
+        let cardClass = 'border-secondary';
+        
+        if (daysDiff === 0) {
+            timeIndicator = '<span class="badge bg-success">Today</span>';
+            cardClass = 'border-success';
+        } else if (daysDiff === 1) {
+            timeIndicator = '<span class="badge bg-warning">Tomorrow</span>';
+            cardClass = 'border-warning';
+        } else if (daysDiff > 0 && daysDiff <= 7) {
+            timeIndicator = `<span class="badge bg-info">In ${daysDiff} day${daysDiff === 1 ? '' : 's'}</span>`;
+            cardClass = 'border-info';
+        } else if (daysDiff > 0) {
+            timeIndicator = `<span class="badge bg-primary">In ${daysDiff} day${daysDiff === 1 ? '' : 's'}</span>`;
+            cardClass = 'border-primary';
+        } else {
+            timeIndicator = `<span class="badge bg-secondary">${Math.abs(daysDiff)} day${Math.abs(daysDiff) === 1 ? '' : 's'} ago</span>`;
+            cardClass = 'border-secondary';
+        }
+        
+        // Get type badge
+        const typeBadge = getHolidayTypeBadge(holidayData.type);
+        
+        // Recurring indicator
+        const recurringIndicator = holidayData.recurring ? 
+            '<i class="bi bi-arrow-repeat text-primary ms-1" title="Recurring Annual Holiday"></i>' : '';
+        
+        return `
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card h-100 ${cardClass}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="card-title mb-0">${holidayData.name}${recurringIndicator}</h6>
+                            ${timeIndicator}
+                        </div>
+                        <p class="card-text text-muted mb-2">
+                            <i class="bi bi-calendar3 me-1"></i>${dateDisplay}
+                        </p>
+                        <div class="mb-2">${typeBadge}</div>
+                        ${holidayData.description ? `<p class="card-text small text-muted">${holidayData.description}</p>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    // Add a "View All" message if there are more holidays
+    const viewAllMessage = holidayEntries.length > 6 ? `
+        <div class="col-12">
+            <div class="text-center text-muted">
+                <small>Showing ${displayHolidays.length} of ${holidayEntries.length} holidays</small>
+            </div>
+        </div>
+    ` : '';
+    
+    holidaysContainer.innerHTML = holidayCards + viewAllMessage;
+}
+
+// Get holiday type badge (same as sadmin dashboard)
+function getHolidayTypeBadge(type) {
+    switch (type) {
+        case 'national':
+            return '<span class="badge bg-danger">National</span>';
+        case 'religious':
+            return '<span class="badge bg-warning">Religious</span>';
+        case 'cultural':
+            return '<span class="badge bg-info">Cultural</span>';
+        case 'company':
+            return '<span class="badge bg-success">Company</span>';
+        case 'other':
+            return '<span class="badge bg-secondary">Other</span>';
+        default:
+            return '<span class="badge bg-light text-dark">Unknown</span>';
+    }
+}
 
 // Global functions
 window.openEmployeeDetails = openEmployeeDetails;
