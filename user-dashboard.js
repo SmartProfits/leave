@@ -58,6 +58,13 @@ const balanceCheck = document.getElementById('balanceCheck');
 const currentBalanceDisplay = document.getElementById('currentBalanceDisplay');
 const afterBalanceDisplay = document.getElementById('afterBalanceDisplay');
 
+// Half day leave elements
+const halfDayOption = document.getElementById('halfDayOption');
+const halfDayCheckbox = document.getElementById('halfDayCheckbox');
+const halfDayTimeSelection = document.getElementById('halfDayTimeSelection');
+const halfDayMorning = document.getElementById('halfDayMorning');
+const halfDayAfternoon = document.getElementById('halfDayAfternoon');
+
 // Leave history elements
 const leaveHistoryTableBody = document.getElementById('leaveHistoryTableBody');
 const refreshLeaveHistoryBtn = document.getElementById('refreshLeaveHistoryBtn');
@@ -66,6 +73,10 @@ const downloadPdfBtn = document.getElementById('downloadPdfBtn');
 // Public holidays elements
 const holidaysContainer = document.getElementById('holidaysContainer');
 const refreshHolidaysBtn = document.getElementById('refreshHolidaysBtn');
+const toggleHolidaysBtn = document.getElementById('toggleHolidaysBtn');
+const holidaysToggleIcon = document.getElementById('holidaysToggleIcon');
+const holidaysToggleText = document.getElementById('holidaysToggleText');
+const holidaysCollapse = document.getElementById('holidaysCollapse');
 
 // Leave summary elements
 const usedAnnualLeave = document.getElementById('usedAnnualLeave');
@@ -764,6 +775,21 @@ refreshHolidaysBtn.addEventListener('click', (e) => {
     loadPublicHolidays();
 });
 
+// Toggle holidays visibility
+toggleHolidaysBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    // The collapse functionality is handled by Bootstrap
+    // We just need to update the icon and text
+    const isCollapsed = holidaysCollapse.classList.contains('show');
+    if (isCollapsed) {
+        holidaysToggleIcon.className = 'bi bi-chevron-up me-1';
+        holidaysToggleText.textContent = 'Hide';
+    } else {
+        holidaysToggleIcon.className = 'bi bi-chevron-down me-1';
+        holidaysToggleText.textContent = 'Show';
+    }
+});
+
 // Open employee modal for adding/editing
 function openEmployeeModal(employeeData = null, employeeId = null) {
     if (!selectedCompanyId) {
@@ -1081,12 +1107,14 @@ async function openEmployeeDetails(employeeId) {
             populateEmployeeDetails(currentEmployeeData);
             await loadLeaveHistory(employeeId);
             
-            // Reset leave form
-            recordLeaveForm.reset();
-            leaveDuration.textContent = 'Select dates to calculate duration';
-            balanceCheck.style.display = 'none';
-            document.getElementById('saturdayWorkOption').style.display = 'none';
-            document.getElementById('paternityEmploymentOption').style.display = 'none';
+        // Reset leave form
+        recordLeaveForm.reset();
+        leaveDuration.textContent = 'Select dates to calculate duration';
+        balanceCheck.style.display = 'none';
+        document.getElementById('saturdayWorkOption').style.display = 'none';
+        document.getElementById('paternityEmploymentOption').style.display = 'none';
+        halfDayOption.style.display = 'none';
+        halfDayTimeSelection.style.display = 'none';
             
             employeeDetailsModal.show();
         } else {
@@ -1215,8 +1243,22 @@ async function calculateLeaveDuration() {
     const startDate = new Date(leaveStartDate.value);
     const endDate = new Date(leaveEndDate.value);
     
+    // Check if half day leave is selected
+    const isHalfDay = halfDayCheckbox.checked;
+    
     if (leaveStartDate.value && leaveEndDate.value) {
         if (endDate >= startDate) {
+            // Show/hide half day option based on leave type and date selection
+            if (leaveType.value !== 'maternity' && leaveType.value !== 'paternity' && 
+                leaveStartDate.value === leaveEndDate.value) {
+                // Show half day option only for single day leaves (except maternity and paternity)
+                halfDayOption.style.display = 'block';
+            } else {
+                halfDayOption.style.display = 'none';
+                halfDayCheckbox.checked = false;
+                halfDayTimeSelection.style.display = 'none';
+            }
+            
             // Check if this leave type needs Saturday work option (all except maternity and paternity) and includes Saturday
             if (leaveType.value !== 'maternity' && leaveType.value !== 'paternity' && hasSaturdayInRange(leaveStartDate.value, leaveEndDate.value)) {
                 // Show Saturday work option for all leave types except maternity and paternity
@@ -1240,7 +1282,7 @@ async function calculateLeaveDuration() {
             let daysDiff;
             if (leaveType.value === 'maternity') {
                 // For maternity leave, use simple day count (include all days)
-            const timeDiff = endDate.getTime() - startDate.getTime();
+                const timeDiff = endDate.getTime() - startDate.getTime();
                 daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
             } else if (leaveType.value === 'paternity') {
                 // For paternity leave, use fixed days based on employment status
@@ -1260,7 +1302,16 @@ async function calculateLeaveDuration() {
                 daysDiff = await calculateLeaveDurationWithSaturday(leaveStartDate.value, leaveEndDate.value, leaveType.value, saturdayWork);
             }
             
-            leaveDuration.textContent = `${daysDiff} day${daysDiff === 1 ? '' : 's'}`;
+            // Apply half day calculation if selected
+            if (isHalfDay && daysDiff === 1) {
+                daysDiff = 0.5;
+                const halfDayTime = document.querySelector('input[name="halfDayTime"]:checked');
+                const timePeriod = halfDayTime ? halfDayTime.value : 'morning';
+                const timeText = timePeriod === 'morning' ? 'AM' : 'PM';
+                leaveDuration.textContent = `0.5 day (${timeText})`;
+            } else {
+                leaveDuration.textContent = `${daysDiff} day${daysDiff === 1 ? '' : 's'}`;
+            }
             
             // Update balance display if leave type is selected
             await updateBalanceDisplay(daysDiff);
@@ -1270,12 +1321,14 @@ async function calculateLeaveDuration() {
             leaveDuration.textContent = 'End date must be after start date';
             balanceCheck.style.display = 'none';
             document.getElementById('saturdayWorkOption').style.display = 'none';
+            halfDayOption.style.display = 'none';
             return 0;
         }
     } else {
         leaveDuration.textContent = 'Select dates to calculate duration';
         balanceCheck.style.display = 'none';
         document.getElementById('saturdayWorkOption').style.display = 'none';
+        halfDayOption.style.display = 'none';
         return 0;
     }
 }
@@ -1462,12 +1515,16 @@ function displayLeaveHistory(leaves) {
         const publicHolidaysInfo = leaveData.publicHolidaysExcluded ? 
             `<br><small class="text-success"><i class="bi bi-calendar-event me-1"></i>Public holidays excluded (${leaveData.publicHolidaysExcluded} day${leaveData.publicHolidaysExcluded === 1 ? '' : 's'})</small>` : '';
         
+        // Add half day info if available
+        const halfDayInfo = leaveData.isHalfDay && leaveData.halfDayTime ? 
+            `<br><small class="text-info"><i class="bi bi-clock-half me-1"></i>Half day (${leaveData.halfDayTime === 'morning' ? 'AM' : 'PM'})</small>` : '';
+        
         return `
             <tr>
                 <td><span class="badge bg-secondary">${leaveTypeDisplay}</span></td>
                 <td>${startDate}</td>
                 <td>${endDate}</td>
-                <td><strong>${leaveData.duration} day${leaveData.duration === 1 ? '' : 's'}</strong>${saturdayInfo}${paternityInfo}${workingDaysInfo}${publicHolidaysInfo}</td>
+                <td><strong>${leaveData.duration} day${leaveData.duration === 1 ? '' : 's'}</strong>${saturdayInfo}${paternityInfo}${workingDaysInfo}${publicHolidaysInfo}${halfDayInfo}</td>
                 <td>${leaveData.reason}</td>
                 <td>${statusBadge}</td>
                 <td>
@@ -1769,6 +1826,29 @@ document.addEventListener('change', (e) => {
     }
 });
 
+// Handle half day checkbox changes
+halfDayCheckbox.addEventListener('change', (e) => {
+    if (e.target.checked) {
+        halfDayTimeSelection.style.display = 'block';
+        // Default to morning if no selection
+        if (!document.querySelector('input[name="halfDayTime"]:checked')) {
+            halfDayMorning.checked = true;
+        }
+    } else {
+        halfDayTimeSelection.style.display = 'none';
+    }
+    // Recalculate duration
+    calculateLeaveDuration();
+});
+
+// Handle half day time selection changes
+document.addEventListener('change', (e) => {
+    if (e.target.name === 'halfDayTime') {
+        // Recalculate duration when half day time changes
+        calculateLeaveDuration();
+    }
+});
+
 // Handle paternity leave selection
 leaveType.addEventListener('change', async (e) => {
     if (e.target.value === 'paternity') {
@@ -1831,6 +1911,11 @@ recordLeaveForm.addEventListener('submit', async (e) => {
     const paternityEmploymentOption = document.querySelector('input[name="paternityEmployment"]:checked');
     const paternityEmployment = paternityEmploymentOption ? paternityEmploymentOption.value : 'confirmed';
     
+    // Get half day information
+    const isHalfDay = halfDayCheckbox.checked;
+    const halfDayTimeOption = document.querySelector('input[name="halfDayTime"]:checked');
+    const halfDayTime = halfDayTimeOption ? halfDayTimeOption.value : null;
+    
     // Set default dates for paternity leave if not provided
     let startDate = leaveStartDate.value;
     let endDate = leaveEndDate.value;
@@ -1853,7 +1938,9 @@ recordLeaveForm.addEventListener('submit', async (e) => {
         duration: duration,
         reason: leaveReason.value.trim(),
         saturdayWork: saturdayWork,
-        paternityEmployment: leaveType.value === 'paternity' ? paternityEmployment : null
+        paternityEmployment: leaveType.value === 'paternity' ? paternityEmployment : null,
+        isHalfDay: isHalfDay,
+        halfDayTime: halfDayTime
     };
     
     // Validation
@@ -1938,6 +2025,8 @@ recordLeaveForm.addEventListener('submit', async (e) => {
         balanceCheck.style.display = 'none';
         document.getElementById('saturdayWorkOption').style.display = 'none';
         document.getElementById('paternityEmploymentOption').style.display = 'none';
+        halfDayOption.style.display = 'none';
+        halfDayTimeSelection.style.display = 'none';
         
         // Refresh the main employee table to update leave balance
         if (selectedCompanyId) {
@@ -2001,7 +2090,7 @@ async function loadPublicHolidays() {
             displayPublicHolidays(holidays);
         } else {
             holidaysContainer.innerHTML = `
-                <div class="col-12 text-center text-muted">
+                <div class="text-center text-muted py-4">
                     <i class="bi bi-calendar-x display-4 mb-2"></i>
                     <p>No public holidays found</p>
                 </div>
@@ -2010,7 +2099,7 @@ async function loadPublicHolidays() {
     } catch (error) {
         console.error('Error loading public holidays:', error);
         holidaysContainer.innerHTML = `
-            <div class="col-12 text-center text-danger">
+            <div class="text-center text-danger py-4">
                 <i class="bi bi-exclamation-triangle display-4 mb-2"></i>
                 <p>Failed to load public holidays</p>
             </div>
@@ -2018,13 +2107,13 @@ async function loadPublicHolidays() {
     }
 }
 
-// Display public holidays in cards
+// Display public holidays in list format
 function displayPublicHolidays(holidays) {
     const holidayEntries = Object.entries(holidays || {});
     
     if (holidayEntries.length === 0) {
         holidaysContainer.innerHTML = `
-            <div class="col-12 text-center text-muted">
+            <div class="text-center text-muted py-4">
                 <i class="bi bi-calendar-x display-4 mb-2"></i>
                 <p>No public holidays found</p>
             </div>
@@ -2051,13 +2140,8 @@ function displayPublicHolidays(holidays) {
         return dateA - dateB;
     });
     
-    // Take only the next 6 holidays for display
-    const displayHolidays = holidayEntries.slice(0, 6);
-    
-    const holidayCards = displayHolidays.map(([holidayId, holidayData]) => {
+    const holidayList = holidayEntries.map(([holidayId, holidayData]) => {
         const holidayDate = new Date(holidayData.date);
-        const isUpcoming = holidayDate >= currentDate;
-        const isPast = holidayDate < currentDate;
         
         // Format date
         const dateDisplay = holidayDate.toLocaleDateString('en-GB', {
@@ -2071,23 +2155,23 @@ function displayPublicHolidays(holidays) {
         const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
         
         let timeIndicator = '';
-        let cardClass = 'border-secondary';
+        let rowClass = '';
         
         if (daysDiff === 0) {
             timeIndicator = '<span class="badge bg-success">Today</span>';
-            cardClass = 'border-success';
+            rowClass = 'table-success';
         } else if (daysDiff === 1) {
             timeIndicator = '<span class="badge bg-warning">Tomorrow</span>';
-            cardClass = 'border-warning';
+            rowClass = 'table-warning';
         } else if (daysDiff > 0 && daysDiff <= 7) {
             timeIndicator = `<span class="badge bg-info">In ${daysDiff} day${daysDiff === 1 ? '' : 's'}</span>`;
-            cardClass = 'border-info';
+            rowClass = 'table-info';
         } else if (daysDiff > 0) {
             timeIndicator = `<span class="badge bg-primary">In ${daysDiff} day${daysDiff === 1 ? '' : 's'}</span>`;
-            cardClass = 'border-primary';
+            rowClass = 'table-primary';
         } else {
             timeIndicator = `<span class="badge bg-secondary">${Math.abs(daysDiff)} day${Math.abs(daysDiff) === 1 ? '' : 's'} ago</span>`;
-            cardClass = 'border-secondary';
+            rowClass = 'table-secondary';
         }
         
         // Get type badge
@@ -2098,34 +2182,45 @@ function displayPublicHolidays(holidays) {
             '<i class="bi bi-arrow-repeat text-primary ms-1" title="Recurring Annual Holiday"></i>' : '';
         
         return `
-            <div class="col-md-6 col-lg-4 mb-3">
-                <div class="card h-100 ${cardClass}">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h6 class="card-title mb-0">${holidayData.name}${recurringIndicator}</h6>
-                            ${timeIndicator}
+            <tr class="${rowClass}">
+                <td>
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-calendar-event me-2 text-primary"></i>
+                        <div>
+                            <strong>${holidayData.name}${recurringIndicator}</strong>
+                            ${holidayData.description ? `<br><small class="text-muted">${holidayData.description}</small>` : ''}
                         </div>
-                        <p class="card-text text-muted mb-2">
-                            <i class="bi bi-calendar3 me-1"></i>${dateDisplay}
-                        </p>
-                        <div class="mb-2">${typeBadge}</div>
-                        ${holidayData.description ? `<p class="card-text small text-muted">${holidayData.description}</p>` : ''}
                     </div>
-                </div>
-            </div>
+                </td>
+                <td>
+                    <i class="bi bi-calendar3 me-1"></i>${dateDisplay}
+                </td>
+                <td>${typeBadge}</td>
+                <td class="text-end">${timeIndicator}</td>
+            </tr>
         `;
     }).join('');
     
-    // Add a "View All" message if there are more holidays
-    const viewAllMessage = holidayEntries.length > 6 ? `
-        <div class="col-12">
-            <div class="text-center text-muted">
-                <small>Showing ${displayHolidays.length} of ${holidayEntries.length} holidays</small>
-            </div>
+    holidaysContainer.innerHTML = `
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th><i class="bi bi-calendar-event me-1"></i>Holiday Name</th>
+                        <th><i class="bi bi-calendar3 me-1"></i>Date</th>
+                        <th><i class="bi bi-tag me-1"></i>Type</th>
+                        <th class="text-end"><i class="bi bi-clock me-1"></i>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${holidayList}
+                </tbody>
+            </table>
         </div>
-    ` : '';
-    
-    holidaysContainer.innerHTML = holidayCards + viewAllMessage;
+        <div class="mt-3 text-center text-muted">
+            <small>Showing ${holidayEntries.length} public holiday${holidayEntries.length === 1 ? '' : 's'}</small>
+        </div>
+    `;
 }
 
 // Get holiday type badge (same as sadmin dashboard)

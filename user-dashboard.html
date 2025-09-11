@@ -150,15 +150,23 @@
                         <h6 class="mb-0">
                             <i class="bi bi-calendar-event me-2"></i>Public Holidays
                         </h6>
-                        <button class="btn btn-outline-primary btn-sm" id="refreshHolidaysBtn">
-                            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
-                        </button>
+                        <div>
+                            <button class="btn btn-outline-primary btn-sm me-2" id="refreshHolidaysBtn">
+                                <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="toggleHolidaysBtn" data-bs-toggle="collapse" data-bs-target="#holidaysCollapse">
+                                <i class="bi bi-chevron-down me-1" id="holidaysToggleIcon"></i>
+                                <span id="holidaysToggleText">Show</span>
+                            </button>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <div class="row" id="holidaysContainer">
-                            <div class="col-12 text-center text-muted">
-                                <i class="bi bi-calendar-event display-4 mb-2"></i>
-                                <p>Loading public holidays...</p>
+                    <div class="collapse" id="holidaysCollapse">
+                        <div class="card-body">
+                            <div id="holidaysContainer">
+                                <div class="text-center text-muted">
+                                    <i class="bi bi-calendar-event display-4 mb-2"></i>
+                                    <p>Loading public holidays...</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -422,6 +430,46 @@
                                         <div class="mb-3">
                                             <label for="leaveEndDate" class="form-label">End Date</label>
                                             <input type="date" class="form-control" id="leaveEndDate" required>
+                                        </div>
+                                        
+                                        <!-- Half Day Leave Option -->
+                                        <div class="mb-3" id="halfDayOption" style="display: none;">
+                                            <div class="card border-primary">
+                                                <div class="card-header bg-primary text-white">
+                                                    <i class="bi bi-clock-half me-2"></i>
+                                                    <strong>Half Day Leave</strong>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="halfDayCheckbox" value="yes">
+                                                        <label class="form-check-label" for="halfDayCheckbox">
+                                                            <strong>This is a half day leave</strong>
+                                                            <br><small class="text-muted">Select this option for half day leave (0.5 days)</small>
+                                                        </label>
+                                                    </div>
+                                                    <div class="mt-3" id="halfDayTimeSelection" style="display: none;">
+                                                        <label class="form-label">Select Time Period:</label>
+                                                        <div class="row">
+                                                            <div class="col-6">
+                                                                <div class="form-check">
+                                                                    <input class="form-check-input" type="radio" name="halfDayTime" id="halfDayMorning" value="morning">
+                                                                    <label class="form-check-label" for="halfDayMorning">
+                                                                        <i class="bi bi-sunrise me-1"></i><strong>AM</strong>
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-6">
+                                                                <div class="form-check">
+                                                                    <input class="form-check-input" type="radio" name="halfDayTime" id="halfDayAfternoon" value="afternoon">
+                                                                    <label class="form-check-label" for="halfDayAfternoon">
+                                                                        <i class="bi bi-sunset me-1"></i><strong>PM</strong>
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                         
                                         <!-- Saturday Work Option (only shown for Annual Leave with Saturday) -->
