@@ -1496,8 +1496,8 @@ function displayLeaveHistory(leaves) {
         // Format leave type
         const leaveTypeDisplay = leaveData.type.charAt(0).toUpperCase() + leaveData.type.slice(1);
         
-        // Status badge
-        const statusBadge = getStatusBadge(leaveData.status);
+        // Status badge with verification status
+        const statusBadge = getStatusBadgeWithVerification(leaveData.status, leaveData.verified);
         
         // Add Saturday work info if available
         const saturdayInfo = leaveData.saturdayWork ? 
@@ -1519,19 +1519,32 @@ function displayLeaveHistory(leaves) {
         const halfDayInfo = leaveData.isHalfDay && leaveData.halfDayTime ? 
             `<br><small class="text-info"><i class="bi bi-clock-half me-1"></i>Half day (${leaveData.halfDayTime === 'morning' ? 'AM' : 'PM'})</small>` : '';
         
+        // Add verification info if verified
+        const verificationInfo = leaveData.verified ? 
+            `<br><small class="text-success"><i class="bi bi-shield-check me-1"></i>Admin verified on ${new Date(leaveData.verifiedAt).toLocaleDateString('en-GB')}</small>` : '';
+        
+        // Determine if delete button should be disabled
+        const isVerified = leaveData.verified === true;
+        const deleteButton = isVerified ? 
+            `<button class="btn btn-outline-secondary btn-sm" disabled title="Cannot delete verified leave">
+                <i class="bi bi-lock"></i>
+            </button>` :
+            `<button class="btn btn-outline-danger btn-sm" onclick="deleteLeaveRecord('${leaveId}')" title="Delete Record">
+                <i class="bi bi-trash"></i>
+            </button>`;
+        
+        // Row styling based on verification status
+        const rowClass = isVerified ? 'table-success' : '';
+        
         return `
-            <tr>
+            <tr class="${rowClass}">
                 <td><span class="badge bg-secondary">${leaveTypeDisplay}</span></td>
                 <td>${startDate}</td>
                 <td>${endDate}</td>
-                <td><strong>${leaveData.duration} day${leaveData.duration === 1 ? '' : 's'}</strong>${saturdayInfo}${paternityInfo}${workingDaysInfo}${publicHolidaysInfo}${halfDayInfo}</td>
+                <td><strong>${leaveData.duration} day${leaveData.duration === 1 ? '' : 's'}</strong>${saturdayInfo}${paternityInfo}${workingDaysInfo}${publicHolidaysInfo}${halfDayInfo}${verificationInfo}</td>
                 <td>${leaveData.reason}</td>
                 <td>${statusBadge}</td>
-                <td>
-                    <button class="btn btn-outline-danger btn-sm" onclick="deleteLeaveRecord('${leaveId}')" title="Delete Record">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </td>
+                <td>${deleteButton}</td>
             </tr>
         `;
     }).join('');
@@ -1551,6 +1564,18 @@ function getStatusBadge(status) {
         default:
             return '<span class="badge bg-secondary">Unknown</span>';
     }
+}
+
+// Get status badge with verification status
+function getStatusBadgeWithVerification(status, verified) {
+    let statusBadge = getStatusBadge(status);
+    
+    if (verified === true) {
+        // Add verification indicator
+        statusBadge += ' <span class="badge bg-danger ms-1"><i class="bi bi-check-circle-fill me-1"></i>Checked</span>';
+    }
+    
+    return statusBadge;
 }
 
 // Calculate leave summary
@@ -1734,9 +1759,21 @@ async function generatePDF() {
 
 // Delete leave record
 async function deleteLeaveRecord(leaveId) {
-    if (confirm('Are you sure you want to delete this leave record?')) {
-        try {
-            const leaveRef = window.firebaseRef(window.firebaseDatabase, `leaves/${selectedCompanyId}/${currentEmployeeId}/${leaveId}`);
+    try {
+        // First check if the leave record is verified
+        const leaveRef = window.firebaseRef(window.firebaseDatabase, `leaves/${selectedCompanyId}/${currentEmployeeId}/${leaveId}`);
+        const snapshot = await window.firebaseGet(leaveRef);
+        
+        if (snapshot.exists()) {
+            const leaveData = snapshot.val();
+            
+            if (leaveData.verified === true) {
+                showAlert('Cannot delete verified leave record. Please contact admin to unverify first.', 'warning');
+                return;
+            }
+        }
+        
+        if (confirm('Are you sure you want to delete this leave record?')) {
             await window.firebaseSet(leaveRef, null);
             
             showAlert('Leave record deleted successfully! Leave balance has been restored.', 'success');
@@ -1748,11 +1785,11 @@ async function deleteLeaveRecord(leaveId) {
             if (selectedCompanyId) {
                 await loadEmployees(selectedCompanyId);
             }
-            
-        } catch (error) {
-            console.error('Error deleting leave record:', error);
-            showAlert('Failed to delete leave record.');
         }
+        
+    } catch (error) {
+        console.error('Error deleting leave record:', error);
+        showAlert('Failed to delete leave record.');
     }
 }
 
